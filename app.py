@@ -312,7 +312,7 @@ nowcast_controls = ui.div(
             "quarter",
             None,
             choices=QUARTERS,
-            selected="2026:Q1",
+            selected=QUARTERS[0],
             inline=True,
         ),
         id="card_quarter",
