@@ -23,7 +23,7 @@ def date_to_quarter(system_date: date) -> dict:
     threshold = date(current_year, first_month, last_day_of_first_month)
 
     # If we haven't passed the end of the first month, stay in the previous quarter
-    if system_date <= threshold:
+    if system_date < threshold:
         raw_quarter -= 1
         if raw_quarter == 0:
             raw_quarter = 4
