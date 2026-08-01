@@ -153,6 +153,7 @@ def fill_ragged_edge(client: Client, data_table: str, freq: str, date = None) ->
         df_filled[var] = _fill_series(df_filled[var], p)
 
     _assert_no_leftover_nan(df_filled, lag_dict, label=f"fill_ragged_edge({data_table})")
+    df_filled = df_filled.fillna(0)
     print(f"Done. Final shape: {df_filled.shape}")
 
     return df_filled
@@ -185,6 +186,8 @@ def fill_ragged_edge_until(QD, MD, cutoff_date):
 
     _assert_no_leftover_nan(QD_filled, lag_dict, label="fill_ragged_edge_until(QD)")
     _assert_no_leftover_nan(MD_filled, lag_dict, label="fill_ragged_edge_until(MD)")
+    QD_filled = QD_filled.fillna(0)
+    MD_filled = MD_filled.fillna(0)
 
     return QD_filled, MD_filled
 
