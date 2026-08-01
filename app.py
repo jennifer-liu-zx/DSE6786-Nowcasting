@@ -8,6 +8,7 @@ from pipeline.fetch_functions import fetch_nowcast_data, fetch_confidence_interv
 
 import calendar
 from datetime import date
+from dateutil.relativedelta import relativedelta
 
 # To automate quarters based on today's date, we define a helper function that maps any date to its current and previous quarter in "YYYY:QX" format. This ensures our app always offers up-to-date quarter options without manual updates.
 def date_to_quarter(system_date: date) -> dict:
@@ -46,6 +47,7 @@ def date_to_quarter(system_date: date) -> dict:
 QUARTERS = [
     date_to_quarter(date.today())["current_quarter"],
     date_to_quarter(date.today())["previous_quarter"],
+    date_to_quarter(date.today() - relativedelta(months=3))["previous_quarter"],
 ]
 
 # Display name -> database name mapping
