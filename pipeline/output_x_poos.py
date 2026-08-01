@@ -4,7 +4,7 @@ from dateutil.relativedelta import relativedelta
 # Real GDP components (consumption, investment, exports) that would let a
 # model near-reconstruct GDP if used contemporaneously. Kept for their
 # predictive lag information, but never as same-quarter regressors.
-GDP_COMPONENT_COLS = ["PCECC96_t", "GPDIC1_t", "EXPGSC1_t"]
+GDP_COMPONENT_COLS = ["PCECC96_t_qd", "GPDIC1_t_qd", "EXPGSC1_t_qd"]
 
 def _average_monthly_to_quarterly_from_df(md_filled: pd.DataFrame) -> pd.DataFrame:
     """Averages monthly data to quarterly, indexed by last month of quarter."""

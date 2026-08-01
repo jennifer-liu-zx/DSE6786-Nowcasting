@@ -44,7 +44,7 @@ from database.client import get_backend_client
 # Real GDP components (consumption, investment, exports) that would let a
 # model near-reconstruct GDP if used contemporaneously. Kept for their
 # predictive lag information, but never as same-quarter regressors.
-GDP_COMPONENT_COLS = ["PCECC96_t", "GPDIC1_t", "EXPGSC1_t"]
+GDP_COMPONENT_COLS = ["PCECC96_t_qd", "GPDIC1_t_qd", "EXPGSC1_t_qd"]
 
 
 # =============================================================================
