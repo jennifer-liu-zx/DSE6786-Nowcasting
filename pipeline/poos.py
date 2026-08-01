@@ -95,6 +95,16 @@ def cut_and_fill(version: int,
         freq="QS-DEC",
     )
 
+    # Raw (un-imputed) cut for the AR benchmark: reindex onto the regular
+    # quarterly grid through prev_q_end so that a genuinely un-released
+    # quarter (gdp_cutoff < prev_q_end) shows up as a NaN row -- preserving
+    # date continuity -- instead of being silently absent from the index.
+    # This is what lets build_X_AR_from_cut correctly detect "t-1 not yet
+    # released" and fall back to a direct 2-step forecast, without ever
+    # touching the ensemble's own predictions. When gdp_cutoff == prev_q_end
+    # (the common case), quarters_to_fill is empty and this is a no-op copy.
+    gdp_cut_raw = gdp_cut.reindex(gdp_cut.index.append(quarters_to_fill))
+
     if len(quarters_to_fill) > 0:
         quarter_date_strs = [
             pd.Period(q, freq="Q").to_timestamp(how="end").to_period("M").to_timestamp().date().isoformat()
@@ -139,7 +149,7 @@ def cut_and_fill(version: int,
                 gdp_cut.loc[q] = gdp_mean
                 print(f"  Safeguard: filled GDP at {q.date()} with mean ({gdp_mean:.4f}) — no nowcast available.")
     
-    return qd_filled, md_filled, gdp_cut
+    return qd_filled, md_filled, gdp_cut, gdp_cut_raw
 
 
 # ── POOS validation loop ─────────────────────────────────────────────────────
@@ -176,13 +186,14 @@ def poos_validation(
         print(f"\n[{i+1}/{num_test}] q_predicted = {q_predicted.date()}")
 
         # 1. Cut & fill
-        qd_filled, md_filled, gdp_cutoff = cut_and_fill(
+        qd_filled, md_filled, gdp_filled, gdp_raw = cut_and_fill(
             version=version,
             q_predicted=pd.Timestamp(q_predicted),
             QD_t=QD_t,
             MD_t=MD_t,
             gdp=y_full
         )
+        gdp_for_build = gdp_raw if buildname == "X_AR" else gdp_filled
 
         # 2. Build features from filled snapshot
         buildfn = make_build_X(buildname)
@@ -190,7 +201,7 @@ def poos_validation(
         X, y = buildfn(
             qd=qd_filled,
             md=md_filled,
-            gdp_cut=gdp_cutoff,
+            gdp_cut=gdp_for_build,
             gdp_actual=y_full,
         )
 
@@ -404,7 +415,7 @@ if __name__ == "__main__":
     gdp_df = gdp_df.set_index("sasdate")
 
     # Smoke-test cut_and_fill
-    filled_qd, filled_md, gdp_filled = cut_and_fill(
+    filled_qd, filled_md, gdp_filled, gdp_raw = cut_and_fill(
         version=4,
         q_predicted=pd.Timestamp("2025-12-01"),
         QD_t=qd,
@@ -413,7 +424,8 @@ if __name__ == "__main__":
     )
     print("QD tail:"); print(filled_qd.tail())
     print("MD tail:"); print(filled_md.tail())
-    print("GDP tail:"); print(gdp_filled.tail())
+    print("GDP tail (filled):"); print(gdp_filled.tail())
+    print("GDP tail (raw, used by AR benchmark):"); print(gdp_raw.tail())
 
     buildX = make_build_X("X1")
     X, y = buildX(filled_qd, filled_md, gdp_filled, gdp_df["GDPC1_t"])

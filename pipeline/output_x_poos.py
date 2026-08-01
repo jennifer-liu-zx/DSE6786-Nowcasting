@@ -1,4 +1,5 @@
 import pandas as pd
+from dateutil.relativedelta import relativedelta
 
 def _average_monthly_to_quarterly_from_df(md_filled: pd.DataFrame) -> pd.DataFrame:
     """Averages monthly data to quarterly, indexed by last month of quarter."""
@@ -152,21 +153,33 @@ def build_X_AR_from_cut(
     gdp_actual: pd.Series,
     n_lags: int = 2,
 ) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Minimal GDP-only AR benchmark with a direct multi-step fallback.
+
+    gdp_cut must be the RAW (un-imputed) GDP series cut at the information
+    set available at prediction time — no ensemble/mean fill-in. If the
+    quarter immediately before the target (t-1) is released, uses a
+    standard 1-step AR(2): lag_a = t-1, lag_b = t-2. If t-1 is NOT yet
+    released, uses a direct 2-step forecast instead of imputing the
+    missing lag: lag_a = t-2, lag_b = t-3.
+    """
     target_date = gdp_cut.index[-1] + relativedelta(months=3)
     full_index  = gdp_cut.index.append(pd.DatetimeIndex([target_date]))
-
     gdp_reindexed = gdp_cut.reindex(full_index)
+
     df = gdp_reindexed.rename("gdp_growth").to_frame()
-    for lag in range(1, n_lags + 1):
+    for lag in range(1, n_lags + 2):
         df[f"lag_{lag}"] = df["gdp_growth"].shift(lag)
-    lag_cols = [f"lag_{i}" for i in range(1, n_lags + 1)]
+
+    t1_available = pd.notna(df["lag_1"].iloc[-1])
+    lag_cols = ["lag_1", "lag_2"] if t1_available else ["lag_2", "lag_3"]
+
     df = df[df[lag_cols].notna().all(axis=1)]
-    X  = df[lag_cols]
-    y  = gdp_actual.reindex(X.index)
-    print(f"X_AR ({n_lags} lags):          {X.shape[0]} quarters × {X.shape[1]} features")
+    X = df[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
+    y = gdp_actual.reindex(X.index)
+    print(f"X_AR (direct-forecast, using {lag_cols}): {X.shape[0]} quarters × {X.shape[1]} features")
     return X, y
 
-from dateutil.relativedelta import relativedelta
 
 def build_X_RF_bench_from_cut(
     gdp_cut: pd.Series,
@@ -210,7 +223,7 @@ def make_build_X(
         case "X4":
             return lambda qd, md, gdp_cut, gdp_actual: build_X4_from_cut(qd, md, gdp_cut, gdp_actual, n_monthly_lags, n_qd_lags)
         case "X_AR":
-            return lambda qd, md, gdp_cut, gdp_actual: build_X_AR_from_cut(gdp_cut, gdp_actual, n_lags)
+            return lambda qd, md, gdp_cut, gdp_actual: build_X_AR_from_cut(gdp_cut, gdp_actual)
         case "X_RF_bench":
             return lambda qd, md, gdp_cut, gdp_actual: build_X_RF_bench_from_cut(gdp_cut, gdp_actual, n_lags)
         case _:

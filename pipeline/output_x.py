@@ -307,21 +307,33 @@ def build_X4(df_md: pd.DataFrame, df_qd: pd.DataFrame,
 
 def build_X_AR(n_lags: int = 2) -> tuple:
     """
-    X_AR: 2 quarterly lags of GDP growth as features.
-    Used by the AR benchmark model.
+    X_AR: minimal GDP-only AR benchmark, direct-forecast on real lags only.
 
-    Uses flash-filled GDP so that the t row (e.g. Q1 2026) has valid
-    lag features even when t-1 GDP (e.g. Q4 2025) is not yet released.
+    Unlike the other builders, this does NOT use _load_gdp_with_flash() —
+    the benchmark must not depend on the ensemble's own predictions. If
+    GDP at t-1 is released, uses a standard 1-step AR(2) (lag_a=t-1,
+    lag_b=t-2). If t-1 is not yet released, uses a direct 2-step forecast
+    (lag_a=t-2, lag_b=t-3) instead of imputing the missing lag.
     """
-    y_gdp = _load_gdp_with_flash()
+    y_gdp = _load_gdp()["GDPC1_t"]
     df = y_gdp.rename("gdp_growth").to_frame()
-    for lag in range(1, n_lags + 1):
+    for lag in range(1, n_lags + 2):
         df[f"lag_{lag}"] = df["gdp_growth"].shift(lag)
-    lag_cols = [f"lag_{i}" for i in range(1, n_lags + 1)]
-    df = df[df[lag_cols].notna().all(axis=1)]
-    X = df[lag_cols].iloc[2:]
-    y = df["gdp_growth"].iloc[2:]
-    print(f"X_AR ({n_lags} lags):          {X.shape[0]} quarters × {X.shape[1]} features")
+
+    t1_available = pd.notna(df["lag_1"].iloc[-1])
+    lag_cols = ["lag_1", "lag_2"] if t1_available else ["lag_2", "lag_3"]
+
+    df_hist = df.iloc[:-1][["gdp_growth"] + lag_cols].dropna()
+    X_hist = df_hist[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
+    y_hist = df_hist["gdp_growth"]
+
+    last_row = df.iloc[[-1]]
+    X_last = last_row[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
+    y_last = last_row["gdp_growth"]
+
+    X = pd.concat([X_hist, X_last])
+    y = pd.concat([y_hist, y_last])
+    print(f"X_AR (direct-forecast, using {lag_cols}): {X.shape[0]} quarters × {X.shape[1]} features")
     return X, y
 
 # =============================================================================
