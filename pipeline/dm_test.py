@@ -97,7 +97,7 @@ def dm_test(
     y_actual: np.ndarray,
     y_hat1: np.ndarray,
     y_hat2: np.ndarray,
-    loss: str = "absolute",
+    loss: str = "squared",
     h: int = 1,
     power: float = 2.0,
     bandwidth: str = "auto",
