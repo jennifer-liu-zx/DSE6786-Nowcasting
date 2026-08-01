@@ -1,4 +1,10 @@
 import pandas as pd
+from dateutil.relativedelta import relativedelta
+
+# Real GDP components (consumption, investment, exports) that would let a
+# model near-reconstruct GDP if used contemporaneously. Kept for their
+# predictive lag information, but never as same-quarter regressors.
+GDP_COMPONENT_COLS = ["PCECC96_t_qd", "GPDIC1_t_qd", "EXPGSC1_t_qd"]
 
 def _average_monthly_to_quarterly_from_df(md_filled: pd.DataFrame) -> pd.DataFrame:
     """Averages monthly data to quarterly, indexed by last month of quarter."""
@@ -70,6 +76,10 @@ def build_X1_from_cut(
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_avg     = _average_monthly_to_quarterly_from_df(md_filled)
     df_q       = _prep_qd_from_df(qd_filled)
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q       = df_q.drop(columns=GDP_COMPONENT_COLS)
     X_base     = df_avg.join(df_q, how="inner")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
@@ -87,7 +97,7 @@ def build_X2_from_cut(
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_avg     = _average_monthly_to_quarterly_from_df(md_filled)
     df_q       = _prep_qd_from_df(qd_filled)
-    X_base     = _add_lags_df(df_avg.join(df_q, how="inner"), n_lags)
+    X_base     = _add_lags_df(df_avg.join(df_q, how="inner"), n_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
     X, y       = _finalise_from_cut(X, gdp_actual)
@@ -103,8 +113,12 @@ def build_X3_from_cut(
     n_lags: int = 4,
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_umidas  = _umidas_monthly_to_quarterly_from_df(md_filled)
-    
+
     df_q       = _prep_qd_from_df(qd_filled)
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q       = df_q.drop(columns=GDP_COMPONENT_COLS)
     X_base     = df_umidas.join(df_q, how="inner")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
@@ -126,7 +140,7 @@ def build_X4_from_cut(
 
     # add lags to each block independently
     df_umidas_lagged = _add_lags_df(df_umidas, n_monthly_lags)
-    df_q_lagged      = _add_lags_df(df_q, n_qd_lags)
+    df_q_lagged      = _add_lags_df(df_q, n_qd_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
 
     # use left join so we keep all U‑MIDAS quarters
     X_base = df_umidas_lagged.join(df_q_lagged, how="left")
@@ -152,21 +166,33 @@ def build_X_AR_from_cut(
     gdp_actual: pd.Series,
     n_lags: int = 2,
 ) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Minimal GDP-only AR benchmark with a direct multi-step fallback.
+
+    gdp_cut must be the RAW (un-imputed) GDP series cut at the information
+    set available at prediction time — no ensemble/mean fill-in. If the
+    quarter immediately before the target (t-1) is released, uses a
+    standard 1-step AR(2): lag_a = t-1, lag_b = t-2. If t-1 is NOT yet
+    released, uses a direct 2-step forecast instead of imputing the
+    missing lag: lag_a = t-2, lag_b = t-3.
+    """
     target_date = gdp_cut.index[-1] + relativedelta(months=3)
     full_index  = gdp_cut.index.append(pd.DatetimeIndex([target_date]))
-
     gdp_reindexed = gdp_cut.reindex(full_index)
+
     df = gdp_reindexed.rename("gdp_growth").to_frame()
-    for lag in range(1, n_lags + 1):
+    for lag in range(1, n_lags + 2):
         df[f"lag_{lag}"] = df["gdp_growth"].shift(lag)
-    lag_cols = [f"lag_{i}" for i in range(1, n_lags + 1)]
+
+    t1_available = pd.notna(df["lag_1"].iloc[-1])
+    lag_cols = ["lag_1", "lag_2"] if t1_available else ["lag_2", "lag_3"]
+
     df = df[df[lag_cols].notna().all(axis=1)]
-    X  = df[lag_cols]
-    y  = gdp_actual.reindex(X.index)
-    print(f"X_AR ({n_lags} lags):          {X.shape[0]} quarters × {X.shape[1]} features")
+    X = df[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
+    y = gdp_actual.reindex(X.index)
+    print(f"X_AR (direct-forecast, using {lag_cols}): {X.shape[0]} quarters × {X.shape[1]} features")
     return X, y
 
-from dateutil.relativedelta import relativedelta
 
 def build_X_RF_bench_from_cut(
     gdp_cut: pd.Series,
@@ -210,7 +236,7 @@ def make_build_X(
         case "X4":
             return lambda qd, md, gdp_cut, gdp_actual: build_X4_from_cut(qd, md, gdp_cut, gdp_actual, n_monthly_lags, n_qd_lags)
         case "X_AR":
-            return lambda qd, md, gdp_cut, gdp_actual: build_X_AR_from_cut(gdp_cut, gdp_actual, n_lags)
+            return lambda qd, md, gdp_cut, gdp_actual: build_X_AR_from_cut(gdp_cut, gdp_actual)
         case "X_RF_bench":
             return lambda qd, md, gdp_cut, gdp_actual: build_X_RF_bench_from_cut(gdp_cut, gdp_actual, n_lags)
         case _:

@@ -41,6 +41,11 @@ sys.path.insert(0, str(PROJECT_DIR))
 from ragged_edge import read_table
 from database.client import get_backend_client
 
+# Real GDP components (consumption, investment, exports) that would let a
+# model near-reconstruct GDP if used contemporaneously. Kept for their
+# predictive lag information, but never as same-quarter regressors.
+GDP_COMPONENT_COLS = ["PCECC96_t_qd", "GPDIC1_t_qd", "EXPGSC1_t_qd"]
+
 
 # =============================================================================
 # DATA LOADING
@@ -226,6 +231,10 @@ def build_X1(df_md: pd.DataFrame, df_qd: pd.DataFrame) -> tuple:
     gdp   = _load_gdp()
     df_avg = _average_monthly_to_quarterly(df_md)
     df_q   = _prep_qd(df_qd)
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q = df_q.drop(columns=GDP_COMPONENT_COLS)
     X = df_avg.join(df_q, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X1 (avg):            {X.shape[0]} quarters × {X.shape[1]} features")
@@ -247,7 +256,7 @@ def build_X2(df_md: pd.DataFrame, df_qd: pd.DataFrame, n_lags: int = 4) -> tuple
     df_avg = _average_monthly_to_quarterly(df_md)
     df_q   = _prep_qd(df_qd)
     qd1 = df_avg.join(df_q, how="inner")
-    X = _add_lags(qd1, n_lags).join(_load_gdp_lags(), how="left")
+    X = _add_lags(qd1, n_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X2 (avg + {n_lags} lags):     {X.shape[0]} quarters × {X.shape[1]} features")
     return X, y
@@ -267,6 +276,10 @@ def build_X3(df_md: pd.DataFrame, df_qd: pd.DataFrame) -> tuple:
     gdp      = _load_gdp()
     df_umidas = _umidas_monthly_to_quarterly(df_md)
     df_q      = _prep_qd(df_qd)
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q = df_q.drop(columns=GDP_COMPONENT_COLS)
     X = df_umidas.join(df_q, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X3 (U-MIDAS):        {X.shape[0]} quarters × {X.shape[1]} features")
@@ -293,7 +306,7 @@ def build_X4(df_md: pd.DataFrame, df_qd: pd.DataFrame,
     df_q      = _prep_qd(df_qd)
 
     df_umidas_lagged = _add_lags(df_umidas, n_monthly_lags)
-    df_q_lagged      = _add_lags(df_q, n_qd_lags)
+    df_q_lagged      = _add_lags(df_q, n_qd_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
 
     X = df_umidas_lagged.join(df_q_lagged, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
@@ -307,21 +320,34 @@ def build_X4(df_md: pd.DataFrame, df_qd: pd.DataFrame,
 
 def build_X_AR(n_lags: int = 2) -> tuple:
     """
-    X_AR: 2 quarterly lags of GDP growth as features.
-    Used by the AR benchmark model.
+    X_AR: minimal GDP-only AR benchmark, direct-forecast on real lags only.
 
-    Uses flash-filled GDP so that the t row (e.g. Q1 2026) has valid
-    lag features even when t-1 GDP (e.g. Q4 2025) is not yet released.
+    Unlike the other builders, this does NOT use _load_gdp_with_flash() —
+    the benchmark must not depend on the ensemble's own predictions. If
+    GDP at t-1 is released, uses a standard 1-step AR(2) (lag_a=t-1,
+    lag_b=t-2). If t-1 is not yet released, uses a direct 2-step forecast
+    (lag_a=t-2, lag_b=t-3) instead of imputing the missing lag.
     """
-    y_gdp = _load_gdp_with_flash()
+    y_gdp = _load_gdp()["GDPC1_t"]
     df = y_gdp.rename("gdp_growth").to_frame()
-    for lag in range(1, n_lags + 1):
+    for lag in range(1, n_lags + 2):
         df[f"lag_{lag}"] = df["gdp_growth"].shift(lag)
-    lag_cols = [f"lag_{i}" for i in range(1, n_lags + 1)]
-    df = df[df[lag_cols].notna().all(axis=1)]
-    X = df[lag_cols].iloc[2:]
-    y = df["gdp_growth"].iloc[2:]
-    print(f"X_AR ({n_lags} lags):          {X.shape[0]} quarters × {X.shape[1]} features")
+
+    t1_available = pd.notna(df["lag_1"].iloc[-1])
+    lag_cols = ["lag_1", "lag_2"] if t1_available else ["lag_2", "lag_3"]
+
+    df_hist = df.iloc[:-1][["gdp_growth"] + lag_cols]
+    df_hist = df_hist[df_hist[lag_cols].notna().all(axis=1)]
+    X_hist = df_hist[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
+    y_hist = df_hist["gdp_growth"]
+
+    last_row = df.iloc[[-1]]
+    X_last = last_row[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
+    y_last = last_row["gdp_growth"]
+
+    X = pd.concat([X_hist, X_last])
+    y = pd.concat([y_hist, y_last])
+    print(f"X_AR (direct-forecast, using {lag_cols}): {X.shape[0]} quarters × {X.shape[1]} features")
     return X, y
 
 # =============================================================================

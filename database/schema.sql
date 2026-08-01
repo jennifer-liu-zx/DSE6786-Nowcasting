@@ -564,28 +564,6 @@ CREATE POLICY "anon can read filled_qd"
     TO anon
     USING (true);
 
---------------------------------------------------------------
--- TABLE: dm_test
---------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS dm_test (
-    "version" NUMERIC,
-    "model_1" NUMERIC,
-    "model_2" NUMERIC,
-    "test_statistic" NUMERIC,
-    "p_value" NUMERIC,
-    PRIMARY KEY (sasdate)
-);
-
-ALTER TABLE dm_test ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "anon can read dm_test" ON dm_test;
-CREATE POLICY "anon can read dm_test"
-    ON dm_test
-    FOR SELECT
-    TO anon
-    USING (true);
-
 -- ────────────────────────────────────────────────────────────
 -- TABLE: model_forecasts
 -- ────────────────────────────────────────────────────────────
@@ -619,6 +597,76 @@ ALTER TABLE model_forecasts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon can read model_forecasts" ON model_forecasts;
 CREATE POLICY "anon can read model_forecasts"
     ON model_forecasts
+    FOR SELECT
+    TO anon
+    USING (true);
+
+-- ────────────────────────────────────────────────────────────
+-- TABLE: dm_test
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS dm_test (
+    version         NUMERIC     NOT NULL,
+    model_1         TEXT        NOT NULL,
+    model_2         TEXT        NOT NULL,
+    test_statistic  NUMERIC,
+    p_value         NUMERIC,
+    PRIMARY KEY (version, model_1, model_2)
+);
+
+ALTER TABLE dm_test ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "anon can read dm_test" ON dm_test;
+CREATE POLICY "anon can read dm_test"
+    ON dm_test
+    FOR SELECT
+    TO anon
+    USING (true);
+
+-- ────────────────────────────────────────────────────────────
+-- TABLE: evaluation
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS evaluation (
+    quarter_date    DATE        NOT NULL,
+    version         NUMERIC     NOT NULL,
+    month_date      DATE,
+    gdp_actual      NUMERIC,
+    "AR_Benchmark" NUMERIC,
+    "RF_Lags_Average" NUMERIC,
+    "RF_Lags_UMIDAS" NUMERIC,
+    "LASSO_UMIDAS" NUMERIC,
+    "LASSO_Average" NUMERIC,
+    "LASSO_Lags_Average" NUMERIC,
+    "All_Model_Average" NUMERIC,
+    PRIMARY KEY (quarter_date, version)
+);
+
+ALTER TABLE evaluation ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "anon can read evaluation" ON evaluation;
+CREATE POLICY "anon can read evaluation"
+    ON evaluation
+    FOR SELECT
+    TO anon
+    USING (true);
+
+-- ────────────────────────────────────────────────────────────
+-- TABLE: rmse
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS rmse (
+    model    TEXT     NOT NULL,
+    version  NUMERIC  NOT NULL,
+    rmse     NUMERIC,
+    PRIMARY KEY (model, version)
+);
+
+ALTER TABLE rmse ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "anon can read rmse" ON rmse;
+CREATE POLICY "anon can read rmse"
+    ON rmse
     FOR SELECT
     TO anon
     USING (true);

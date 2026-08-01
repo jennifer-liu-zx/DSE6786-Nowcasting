@@ -12,6 +12,7 @@ Requires a .env file with SUPABASE_URL and SUPABASE_KEY set.
 """
 
 from datetime import date
+from itertools import combinations
 from pipeline.fetch_functions import (
     quarter_to_dates,
     _flash_month_dates,
@@ -274,37 +275,57 @@ except Exception as e:
 
 section("9. fetch_dm")
 try:
+    expected_pairs = {frozenset((m1, m2)) for m1, m2 in combinations(TEST_MODELS, 2)}
+
     for fm in [1, 2, 3]:
-        matrix = fetch_dm(TEST_MODELS, fm)
+        pairs = fetch_dm(TEST_MODELS, fm)
 
-        assert isinstance(matrix, dict), "matrix should be a dict"
+        assert isinstance(pairs, list), "fetch_dm should return a list"
 
-        for m in TEST_MODELS:
-            assert matrix[(m, m)] is None, f"diagonal ({m},{m}) should be None"
+        seen = set()
+        for pair in pairs:
+            assert isinstance(pair, dict), "each entry should be a dict"
+            for key in ("model_1", "model_2", "test_statistic", "p_value"):
+                assert key in pair, f"entry missing key {key!r}: {pair}"
 
-        for m1 in TEST_MODELS:
-            for m2 in TEST_MODELS:
-                if m1 == m2:
-                    continue
-                val = matrix[(m1, m2)]
-                assert val is None or isinstance(val, float), (
-                    f"({m1},{m2}) should be float or None, got {type(val)}"
+            m1, m2 = pair["model_1"], pair["model_2"]
+            assert m1 != m2, f"pair should not be a self-comparison: {pair}"
+            assert m1 in TEST_MODELS and m2 in TEST_MODELS, (
+                f"unexpected model name(s) in pair: {pair}"
+            )
+
+            pair_key = frozenset((m1, m2))
+            assert pair_key in expected_pairs, f"pair {pair} is not a unique combination of TEST_MODELS"
+            assert pair_key not in seen, f"pair {pair} duplicates an already-seen combination"
+            seen.add(pair_key)
+
+            stat = pair["test_statistic"]
+            assert stat is None or isinstance(stat, float), (
+                f"test_statistic for {pair} should be float or None, got {type(stat)}"
+            )
+
+            p_value = pair["p_value"]
+            assert p_value is None or isinstance(p_value, float), (
+                f"p_value for {pair} should be float or None, got {type(p_value)}"
+            )
+            if p_value is not None:
+                assert 0.0 <= p_value <= 1.0, (
+                    f"p-value for {pair} = {p_value} is outside [0, 1]"
                 )
-                if val is not None:
-                    assert 0.0 <= val <= 1.0, (
-                        f"p-value ({m1},{m2}) = {val} is outside [0, 1]"
-                    )
 
-        print(f"\n  flash_month={fm} DM p-value matrix:")
-        col_w = max(len(m) for m in TEST_MODELS) + 2
-        header = " " * col_w + "".join(f"{m:>{col_w}}" for m in TEST_MODELS)
-        print(f"  {header}")
-        for m1 in TEST_MODELS:
-            row = f"  {m1:<{col_w}}"
-            for m2 in TEST_MODELS:
-                v = matrix[(m1, m2)]
-                row += f"{'---':>{col_w}}" if v is None else f"{v:>{col_w}.4f}"
-            print(row)
+        print(f"\n  flash_month={fm} DM comparisons ({len(pairs)} pair(s)):")
+        for pair in pairs:
+            stat = pair["test_statistic"]
+            p_value = pair["p_value"]
+            if stat is None:
+                print(f"    {pair['model_1']} vs {pair['model_2']}: t = --- (no statistic)")
+                continue
+            favored = pair["model_1"] if stat <= 0 else pair["model_2"]
+            p_str = f"{p_value:.4f}" if p_value is not None else "---"
+            print(
+                f"    {pair['model_1']} vs {pair['model_2']}: "
+                f"t = {stat:+.4f}  p = {p_str}  (favors {favored})"
+            )
 
     print(f"\n  {PASS}")
 except Exception as e:

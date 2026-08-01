@@ -21,7 +21,14 @@ CSV_FILES = {
     "fred_qd_x": DATA_DIR / "fred_qd_X.csv",
     "filled_md": DATA_DIR / "filled_md.csv",
     "filled_qd": DATA_DIR / "filled_qd.csv",
-    "dm_test": DATA_DIR / "dm_pval_matrix.csv"
+}
+
+COLUMN_SOURCE_OVERRIDE = {
+    # filled_md/filled_qd share fred_md/fred_qd_x's column names by
+    # construction (fill_ragged_edge never renames columns) — always derive
+    # their schema from those files, not their own (possibly stale) CSVs.
+    "filled_md": DATA_DIR / "fred_md.csv",
+    "filled_qd": DATA_DIR / "fred_qd_X.csv",
 }
 
 # Define the schema type for each column
@@ -124,6 +131,63 @@ def generate_model_forecasts_table() -> str:
             f"",
         ])
 
+def generate_dm_test_table() -> str:
+    return "\n".join([
+        f"-- {'─' * 60}",
+        f"-- TABLE: dm_test",
+        f"-- {'─' * 60}",
+        f"",
+        f"CREATE TABLE IF NOT EXISTS dm_test (",
+        f"    version         NUMERIC     NOT NULL,",
+        f"    model_1         TEXT        NOT NULL,",
+        f"    model_2         TEXT        NOT NULL,",
+        f"    test_statistic  NUMERIC,",
+        f"    p_value         NUMERIC,",
+        f"    PRIMARY KEY (version, model_1, model_2)",
+        f");",
+        f"",
+    ])
+
+
+def generate_evaluation_table() -> str:
+    model_cols = [
+        "AR_Benchmark", "RF_Lags_Average", "RF_Lags_UMIDAS",
+        "LASSO_UMIDAS", "LASSO_Average", "LASSO_Lags_Average",
+        "All_Model_Average",
+    ]
+    col_lines = "\n".join(f'    "{c}" NUMERIC,' for c in model_cols)
+    return "\n".join([
+        f"-- {'─' * 60}",
+        f"-- TABLE: evaluation",
+        f"-- {'─' * 60}",
+        f"",
+        f"CREATE TABLE IF NOT EXISTS evaluation (",
+        f"    quarter_date    DATE        NOT NULL,",
+        f"    version         NUMERIC     NOT NULL,",
+        f"    month_date      DATE,",
+        f"    gdp_actual      NUMERIC,",
+        col_lines,
+        f"    PRIMARY KEY (quarter_date, version)",
+        f");",
+        f"",
+    ])
+
+
+def generate_rmse_table() -> str:
+    return "\n".join([
+        f"-- {'─' * 60}",
+        f"-- TABLE: rmse",
+        f"-- {'─' * 60}",
+        f"",
+        f"CREATE TABLE IF NOT EXISTS rmse (",
+        f"    model    TEXT     NOT NULL,",
+        f"    version  NUMERIC  NOT NULL,",
+        f"    rmse     NUMERIC,",
+        f"    PRIMARY KEY (model, version)",
+        f");",
+        f"",
+    ])
+
 # MAIN
 def main():
     OUTPUT_FILE.parent.mkdir(exist_ok=True)  # Ensure the output directory exists
@@ -140,8 +204,9 @@ def main():
     ]))
 
     for table_name, filepath in CSV_FILES.items():
-        print(f"Reading columns from {filepath} ...")
-        columns = get_columns(filepath)
+        source_path = COLUMN_SOURCE_OVERRIDE.get(table_name, filepath)
+        print(f"Reading columns from {source_path} ...")
+        columns = get_columns(source_path)
         print(f"  {len(columns)} columns found.")
 
         blocks.append(gen_input_table(table_name, columns))
@@ -149,6 +214,12 @@ def main():
     
     blocks.append(generate_model_forecasts_table())
     blocks.append(gen_rls("model_forecasts"))
+    blocks.append(generate_dm_test_table())
+    blocks.append(gen_rls("dm_test"))
+    blocks.append(generate_evaluation_table())
+    blocks.append(gen_rls("evaluation"))
+    blocks.append(generate_rmse_table())
+    blocks.append(gen_rls("rmse"))
 
     schema_sql = "\n".join(blocks)
     OUTPUT_FILE.write_text(schema_sql, encoding="utf-8")

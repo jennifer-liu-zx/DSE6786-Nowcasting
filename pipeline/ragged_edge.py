@@ -106,6 +106,24 @@ def _fill_series(series: pd.Series, p: int) -> pd.Series:
     return series_filled
 
 
+def _assert_no_leftover_nan(df: pd.DataFrame, lag_dict: dict, label: str) -> None:
+    """
+    _fill_series should resolve every tracked variable (interpolate + AR
+    forecast). Any leftover NaN means a variable has no usable history at
+    all within this window — silently zero-filling it would corrupt model
+    training, so we fail loudly instead.
+    """
+    tracked_cols = [c for c in lag_dict if c in df.columns]
+    nan_counts = df[tracked_cols].isna().sum()
+    offending = nan_counts[nan_counts > 0]
+    if not offending.empty:
+        raise ValueError(
+            f"{label}: {len(offending)} variable(s) still have NaN after "
+            f"ragged-edge fill (would previously have been silently zeroed): "
+            f"{offending.to_dict()}"
+        )
+
+
 def fill_ragged_edge(client: Client, data_table: str, freq: str, date = None) -> pd.DataFrame:
     date_col = "sasdate"
     lag_csv = "data/bic_lags.csv"
@@ -134,6 +152,7 @@ def fill_ragged_edge(client: Client, data_table: str, freq: str, date = None) ->
             continue
         df_filled[var] = _fill_series(df_filled[var], p)
 
+    _assert_no_leftover_nan(df_filled, lag_dict, label=f"fill_ragged_edge({data_table})")
     df_filled = df_filled.fillna(0)
     print(f"Done. Final shape: {df_filled.shape}")
 
@@ -165,6 +184,8 @@ def fill_ragged_edge_until(QD, MD, cutoff_date):
         else:
             print(f"  [{i}/{len(lag_dict)}] '{var}' skipped (not in QD or MD)")
 
+    _assert_no_leftover_nan(QD_filled, lag_dict, label="fill_ragged_edge_until(QD)")
+    _assert_no_leftover_nan(MD_filled, lag_dict, label="fill_ragged_edge_until(MD)")
     QD_filled = QD_filled.fillna(0)
     MD_filled = MD_filled.fillna(0)
 

@@ -43,9 +43,20 @@ def date_to_quarter(system_date: date) -> dict:
         "previous_quarter": f"{previous_year}:Q{previous_quarter}",
     }
 
+
+def shift_quarter(quarter_str: str, n: int) -> str:
+    """Shift a 'YYYY:QX' string by n quarters (n can be negative)."""
+    year_str, q_str = quarter_str.split(":Q")
+    year, q = int(year_str), int(q_str)
+    total = (year * 4 + (q - 1)) + n
+    new_year, new_q = divmod(total, 4)
+    return f"{new_year}:Q{new_q + 1}"
+
+
 QUARTERS = [
     date_to_quarter(date.today())["current_quarter"],
     date_to_quarter(date.today())["previous_quarter"],
+    shift_quarter(date_to_quarter(date.today())["previous_quarter"], -1),
 ]
 
 # Display name -> database name mapping
@@ -66,9 +77,9 @@ MODEL_COLORS = {
 }
 
 MODEL_DESCRIPTIONS = {
-    "Ensemble": "An ensemble model that combines predictions from all other models.",
+    "Ensemble": "A simple average of 5 backend models: 3 LASSO variants (simple average, simple average + lags, U-MIDAS) and 2 Random Forest variants (simple average + lags, U-MIDAS + lags). Only 3 of these 5 models are shown individually in this app.",
     "RF Lags Avg": "A Random Forest Bridge Equation model using simple quarterly averages of monthly data. Includes lags of the quarterly averages as features.",
-    "RF Lags UMIDAS": "A Random Forest using U-MIDAS to treat each monthly observation as a distinct input. Includes lags of the quarterly averages as features.",
+    "RF Lags UMIDAS": "A Random Forest using U-MIDAS to treat each month within the quarter as a separate input, not a quarterly average. Includes quarterly lags of both the monthly U-MIDAS block and the quarterly variables as features.",
     "LASSO UMIDAS": "A Regularized U-MIDAS regression using monthly variables from the current quarter only.",
 }
 
@@ -764,40 +775,29 @@ def server(input, output, session):
         t = THEME["dark"] if is_dark.get() else THEME["light"]
         db_models = to_db_names(selected_models)
 
-        matrix = fetch_dm(db_models,flash_month)
+        dm_pairs = fetch_dm(db_models, flash_month)
         metrics = fetch_rmse(db_models)
 
-        # Build DM matrix table
-        cell_style = (
-            f"border: 1px solid {t['border']}; padding: 1rem 1.5rem; "
-            "text-align: center; vertical-align: middle; min-width: 90px;"
-        )
-        diag_style = cell_style + f" background-color: {t['bg_card_header']};"
-        header_style = (
-            f"border: 1px solid {t['border']}; padding: 0.5rem 1rem; "
-            f"text-align: center; font-weight: normal; color: {t['text_primary']};")
+        pair_rows = []
+        for pair in dm_pairs:
+            if pair["test_statistic"] is None:
+                continue
+            name_1 = from_db_name(pair["model_1"])
+            name_2 = from_db_name(pair["model_2"])
+            stat = pair["test_statistic"]
+            favored = name_1 if stat <= 0 else name_2
+            pair_rows.append(
+                ui.p(
+                    f"{name_1} − {name_2}:  t = {stat:+.2f}  (favors {favored})",
+                    style=f"color: {t['text_primary']}; margin: 0.5rem 0;",
+                )
+            )
 
-        header_row_cells = [ui.tags.th("", style=header_style)]
-        for m in selected_models:
-            header_row_cells.append(ui.tags.th(m, style=header_style))
-
-        data_rows = []
-        for m1 in selected_models:
-            row_cells = [ui.tags.th(m1, style=header_style)]
-            db_m1 = MODEL_DB_NAMES.get(m1)
-            for m2 in selected_models:
-                db_m2 = MODEL_DB_NAMES.get(m2)
-                val = matrix.get((db_m1, db_m2))
-                if val is None:
-                    row_cells.append(ui.tags.td("", style=diag_style))
-                else:
-                    row_cells.append(ui.tags.td(f"{val:.2f}", style=cell_style))
-            data_rows.append(ui.tags.tr(*row_cells))
-
-        dm_table = ui.tags.table(
-            ui.tags.tr(*header_row_cells),
-            *data_rows,
-            style="border-collapse: collapse;",
+        dm_list = (
+            ui.div(*pair_rows)
+            if pair_rows
+            else ui.p("No DM comparisons available for the selected models.",
+                      style=f"color: {t['text_secondary']};")
         )
 
         # RMSE column
@@ -832,12 +832,12 @@ def server(input, output, session):
                     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;",
                 ),
                 ui.p(
-                    "The Diebold-Mariano test allows us to check whether one model performs significantly better than another. If one model has a lower RMSE than another, but their DM test p-value > significance level of 0.1, this difference in performance is taken to not be significant.",
+                    "The Diebold-Mariano test checks whether one model's forecast errors are significantly smaller than another's. A test statistic further from zero than ±1.96 (5%) or ±1.64 (10%) indicates a significant difference; the sign shows which model is favored.",
                     style=f"color: {t['text_secondary']}; margin-bottom: 1.25rem;",
                 ),
                 # Two columns
                 ui.div(
-                    ui.div(dm_table, style="flex: 1; overflow-x: auto;"),
+                    ui.div(dm_list, style="flex: 1;"),
                     ui.div(
                         *rmse_lines,
                         style=(
