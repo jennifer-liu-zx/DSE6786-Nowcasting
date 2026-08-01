@@ -68,9 +68,9 @@ MODEL_COLORS = {
 }
 
 MODEL_DESCRIPTIONS = {
-    "Ensemble": "An ensemble model that combines predictions from all other models.",
+    "Ensemble": "A simple average of 5 backend models: 3 LASSO variants (simple average, simple average + lags, U-MIDAS) and 2 Random Forest variants (simple average + lags, U-MIDAS + lags). Only 3 of these 5 models are shown individually in this app.",
     "RF Lags Avg": "A Random Forest Bridge Equation model using simple quarterly averages of monthly data. Includes lags of the quarterly averages as features.",
-    "RF Lags UMIDAS": "A Random Forest using U-MIDAS to treat each monthly observation as a distinct input. Includes lags of the quarterly averages as features.",
+    "RF Lags UMIDAS": "A Random Forest using U-MIDAS to treat each month within the quarter as a separate input, not a quarterly average. Includes quarterly lags of both the monthly U-MIDAS block and the quarterly variables as features.",
     "LASSO UMIDAS": "A Regularized U-MIDAS regression using monthly variables from the current quarter only.",
 }
 
