@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 import calendar
 from datetime import date
+from itertools import combinations
 
 load_dotenv()
 
@@ -213,42 +214,35 @@ def fetch_rmse(models: list[str]) -> dict[str, dict]:
  
     return metrics
 
-######## Function 5: Fetch Evaluation Metrics (DM) ########
-## The following function fetches DM values for a pairwise comparison of two model ##
-def fetch_dm(models: list[str], flash_month: int) -> dict[tuple[str, str], float | None]:
- 
-    matrix: dict[tuple[str, str], float | None] = {}
- 
-    for m1 in models:
-        for m2 in models:
-            if m1 == m2:
-                matrix[(m1, m2)] = None
-                continue
-            if (m1,m2) in matrix:
-                continue  # already fetched the symmetric value
-
+######## Function 5: Fetch Evaluation Metrics (DM) ########
+## Fetches pairwise DM test statistics for all unique pairs among `models` ##
+def fetch_dm(models: list[str], flash_month: int) -> list[dict]:
+    """
+    Returns one row per unique pair of models: {model_1, model_2,
+    test_statistic, p_value}. Uses whichever (model_1, model_2) ordering
+    the dm_test table stores for that pair — winner-first, i.e. a negative
+    test_statistic always favours model_1.
+    """
+    results = []
+    for m1, m2 in combinations(models, 2):
+        result = supabase.table("dm_test") \
+            .select("model_1", "model_2", "test_statistic", "p_value") \
+            .eq("model_1", m1).eq("model_2", m2).eq("version", flash_month) \
+            .execute()
+        if not result.data:
             result = supabase.table("dm_test") \
-                .select("p_value") \
-                .eq("model_1", m1) \
-                .eq("model_2", m2) \
-                .eq("version", flash_month) \
+                .select("model_1", "model_2", "test_statistic", "p_value") \
+                .eq("model_1", m2).eq("model_2", m1).eq("version", flash_month) \
                 .execute()
- 
-            if result.data:
-                p_value = result.data[0]["p_value"]
-            else:
-                result_rev = supabase.table("dm_test") \
-                    .select("p_value") \
-                    .eq("model_1", m2) \
-                    .eq("model_2", m1) \
-                    .eq("version", flash_month) \
-                    .execute()
-                p_value = result_rev.data[0]["p_value"] if result_rev.data else None
-
-            matrix[(m1, m2)] = p_value
-            matrix[(m2, m1)] = p_value
- 
-    return matrix
+        if result.data:
+            row = result.data[0]
+            results.append({
+                "model_1": row["model_1"],
+                "model_2": row["model_2"],
+                "test_statistic": row["test_statistic"],
+                "p_value": row["p_value"],
+            })
+    return results
 
 def fetch_realised_gdp(quarter: str) -> float | None:
     quarter_start = quarter_to_dates(quarter)
