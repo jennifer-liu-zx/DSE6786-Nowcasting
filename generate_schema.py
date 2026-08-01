@@ -23,6 +23,14 @@ CSV_FILES = {
     "filled_qd": DATA_DIR / "filled_qd.csv",
 }
 
+COLUMN_SOURCE_OVERRIDE = {
+    # filled_md/filled_qd share fred_md/fred_qd_x's column names by
+    # construction (fill_ragged_edge never renames columns) — always derive
+    # their schema from those files, not their own (possibly stale) CSVs.
+    "filled_md": DATA_DIR / "fred_md.csv",
+    "filled_qd": DATA_DIR / "fred_qd_X.csv",
+}
+
 # Define the schema type for each column
 def get_sql_type(column_name: str) -> str:
     if column_name == "sasdate":
@@ -196,8 +204,9 @@ def main():
     ]))
 
     for table_name, filepath in CSV_FILES.items():
-        print(f"Reading columns from {filepath} ...")
-        columns = get_columns(filepath)
+        source_path = COLUMN_SOURCE_OVERRIDE.get(table_name, filepath)
+        print(f"Reading columns from {source_path} ...")
+        columns = get_columns(source_path)
         print(f"  {len(columns)} columns found.")
 
         blocks.append(gen_input_table(table_name, columns))

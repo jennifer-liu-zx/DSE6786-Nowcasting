@@ -75,7 +75,11 @@ def build_X1_from_cut(
     n_lags: int = 4,
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_avg     = _average_monthly_to_quarterly_from_df(md_filled)
-    df_q       = _prep_qd_from_df(qd_filled).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
+    df_q       = _prep_qd_from_df(qd_filled)
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q       = df_q.drop(columns=GDP_COMPONENT_COLS)
     X_base     = df_avg.join(df_q, how="inner")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
@@ -110,7 +114,11 @@ def build_X3_from_cut(
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_umidas  = _umidas_monthly_to_quarterly_from_df(md_filled)
 
-    df_q       = _prep_qd_from_df(qd_filled).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
+    df_q       = _prep_qd_from_df(qd_filled)
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q       = df_q.drop(columns=GDP_COMPONENT_COLS)
     X_base     = df_umidas.join(df_q, how="inner")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")

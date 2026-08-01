@@ -231,7 +231,10 @@ def build_X1(df_md: pd.DataFrame, df_qd: pd.DataFrame) -> tuple:
     gdp   = _load_gdp()
     df_avg = _average_monthly_to_quarterly(df_md)
     df_q   = _prep_qd(df_qd)
-    df_q = df_q.drop(columns=GDP_COMPONENT_COLS, errors="ignore")
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q = df_q.drop(columns=GDP_COMPONENT_COLS)
     X = df_avg.join(df_q, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X1 (avg):            {X.shape[0]} quarters × {X.shape[1]} features")
@@ -273,7 +276,10 @@ def build_X3(df_md: pd.DataFrame, df_qd: pd.DataFrame) -> tuple:
     gdp      = _load_gdp()
     df_umidas = _umidas_monthly_to_quarterly(df_md)
     df_q      = _prep_qd(df_qd)
-    df_q = df_q.drop(columns=GDP_COMPONENT_COLS, errors="ignore")
+    missing = [c for c in GDP_COMPONENT_COLS if c not in df_q.columns]
+    if missing:
+        raise ValueError(f"GDP component columns not found in quarterly data: {missing}")
+    df_q = df_q.drop(columns=GDP_COMPONENT_COLS)
     X = df_umidas.join(df_q, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X3 (U-MIDAS):        {X.shape[0]} quarters × {X.shape[1]} features")
@@ -330,7 +336,8 @@ def build_X_AR(n_lags: int = 2) -> tuple:
     t1_available = pd.notna(df["lag_1"].iloc[-1])
     lag_cols = ["lag_1", "lag_2"] if t1_available else ["lag_2", "lag_3"]
 
-    df_hist = df.iloc[:-1][["gdp_growth"] + lag_cols].dropna()
+    df_hist = df.iloc[:-1][["gdp_growth"] + lag_cols]
+    df_hist = df_hist[df_hist[lag_cols].notna().all(axis=1)]
     X_hist = df_hist[lag_cols].rename(columns={lag_cols[0]: "lag_a", lag_cols[1]: "lag_b"})
     y_hist = df_hist["gdp_growth"]
 
