@@ -41,6 +41,11 @@ sys.path.insert(0, str(PROJECT_DIR))
 from ragged_edge import read_table
 from database.client import get_backend_client
 
+# Real GDP components (consumption, investment, exports) that would let a
+# model near-reconstruct GDP if used contemporaneously. Kept for their
+# predictive lag information, but never as same-quarter regressors.
+GDP_COMPONENT_COLS = ["PCECC96_t", "GPDIC1_t", "EXPGSC1_t"]
+
 
 # =============================================================================
 # DATA LOADING
@@ -226,6 +231,7 @@ def build_X1(df_md: pd.DataFrame, df_qd: pd.DataFrame) -> tuple:
     gdp   = _load_gdp()
     df_avg = _average_monthly_to_quarterly(df_md)
     df_q   = _prep_qd(df_qd)
+    df_q = df_q.drop(columns=GDP_COMPONENT_COLS, errors="ignore")
     X = df_avg.join(df_q, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X1 (avg):            {X.shape[0]} quarters × {X.shape[1]} features")
@@ -247,7 +253,7 @@ def build_X2(df_md: pd.DataFrame, df_qd: pd.DataFrame, n_lags: int = 4) -> tuple
     df_avg = _average_monthly_to_quarterly(df_md)
     df_q   = _prep_qd(df_qd)
     qd1 = df_avg.join(df_q, how="inner")
-    X = _add_lags(qd1, n_lags).join(_load_gdp_lags(), how="left")
+    X = _add_lags(qd1, n_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X2 (avg + {n_lags} lags):     {X.shape[0]} quarters × {X.shape[1]} features")
     return X, y
@@ -267,6 +273,7 @@ def build_X3(df_md: pd.DataFrame, df_qd: pd.DataFrame) -> tuple:
     gdp      = _load_gdp()
     df_umidas = _umidas_monthly_to_quarterly(df_md)
     df_q      = _prep_qd(df_qd)
+    df_q = df_q.drop(columns=GDP_COMPONENT_COLS, errors="ignore")
     X = df_umidas.join(df_q, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)
     print(f"X3 (U-MIDAS):        {X.shape[0]} quarters × {X.shape[1]} features")
@@ -293,7 +300,7 @@ def build_X4(df_md: pd.DataFrame, df_qd: pd.DataFrame,
     df_q      = _prep_qd(df_qd)
 
     df_umidas_lagged = _add_lags(df_umidas, n_monthly_lags)
-    df_q_lagged      = _add_lags(df_q, n_qd_lags)
+    df_q_lagged      = _add_lags(df_q, n_qd_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
 
     X = df_umidas_lagged.join(df_q_lagged, how="inner").join(_load_gdp_lags(), how="left")
     X, y = _finalise(X, gdp)

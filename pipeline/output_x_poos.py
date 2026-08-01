@@ -1,6 +1,11 @@
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
+# Real GDP components (consumption, investment, exports) that would let a
+# model near-reconstruct GDP if used contemporaneously. Kept for their
+# predictive lag information, but never as same-quarter regressors.
+GDP_COMPONENT_COLS = ["PCECC96_t", "GPDIC1_t", "EXPGSC1_t"]
+
 def _average_monthly_to_quarterly_from_df(md_filled: pd.DataFrame) -> pd.DataFrame:
     """Averages monthly data to quarterly, indexed by last month of quarter."""
     md = md_filled.copy()
@@ -70,7 +75,7 @@ def build_X1_from_cut(
     n_lags: int = 4,
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_avg     = _average_monthly_to_quarterly_from_df(md_filled)
-    df_q       = _prep_qd_from_df(qd_filled)
+    df_q       = _prep_qd_from_df(qd_filled).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
     X_base     = df_avg.join(df_q, how="inner")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
@@ -88,7 +93,7 @@ def build_X2_from_cut(
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_avg     = _average_monthly_to_quarterly_from_df(md_filled)
     df_q       = _prep_qd_from_df(qd_filled)
-    X_base     = _add_lags_df(df_avg.join(df_q, how="inner"), n_lags)
+    X_base     = _add_lags_df(df_avg.join(df_q, how="inner"), n_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
     X, y       = _finalise_from_cut(X, gdp_actual)
@@ -104,8 +109,8 @@ def build_X3_from_cut(
     n_lags: int = 4,
 ) -> tuple[pd.DataFrame, pd.Series]:
     df_umidas  = _umidas_monthly_to_quarterly_from_df(md_filled)
-    
-    df_q       = _prep_qd_from_df(qd_filled)
+
+    df_q       = _prep_qd_from_df(qd_filled).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
     X_base     = df_umidas.join(df_q, how="inner")
     gdp_lags   = _build_gdp_lags_from_cut(gdp_cut, X_base.index, n_lags)
     X          = X_base.join(gdp_lags, how="left")
@@ -127,7 +132,7 @@ def build_X4_from_cut(
 
     # add lags to each block independently
     df_umidas_lagged = _add_lags_df(df_umidas, n_monthly_lags)
-    df_q_lagged      = _add_lags_df(df_q, n_qd_lags)
+    df_q_lagged      = _add_lags_df(df_q, n_qd_lags).drop(columns=GDP_COMPONENT_COLS, errors="ignore")
 
     # use left join so we keep all U‑MIDAS quarters
     X_base = df_umidas_lagged.join(df_q_lagged, how="left")
