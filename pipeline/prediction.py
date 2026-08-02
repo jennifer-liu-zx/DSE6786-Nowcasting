@@ -4,7 +4,8 @@ from database.client import get_backend_client
 from pipeline.models.AR_benchmark import ar_model_nowcast
 from pipeline.models.rf import randomForest
 from pipeline.models.lasso import fit_lasso
-from pipeline.output_x import build_X1, build_X2, build_X3, build_X4, load_filled_data, build_X_AR, load_filled_data
+from pipeline.gdp_data import load_filled_data, load_gdp, load_gdp_with_flash
+from pipeline.feature_matrix import build_X1, build_X2, build_X3, build_X4, build_X_AR
 from pipeline.evaluation_support import fetch_all_model_forecasts, compute_ci_bounds
 
 def assign_version_prev(run_date):
@@ -279,11 +280,13 @@ def run_all_nowcasts(
 
 def prediction_pipeline(run_date=None):
     df_md, df_qd = load_filled_data()
-    X_ar , y_ar = build_X_AR()
-    X1, y1 = build_X1(df_md, df_qd)
-    X2, y2 = build_X2(df_md, df_qd, n_lags=4)
-    X3, y3 = build_X3(df_md, df_qd)
-    X4, y4 = build_X4(df_md, df_qd, n_monthly_lags=4, n_qd_lags=4)
+    gdp_actual_series = load_gdp()["GDPC1_t"]
+    gdp_flash_series  = load_gdp_with_flash()
+    X_ar, y_ar = build_X_AR(gdp_actual_series, gdp_actual_series, n_lags=2)
+    X1, y1 = build_X1(df_md, df_qd, gdp_flash_series, gdp_actual_series)
+    X2, y2 = build_X2(df_md, df_qd, gdp_flash_series, gdp_actual_series, n_lags=4)
+    X3, y3 = build_X3(df_md, df_qd, gdp_flash_series, gdp_actual_series)
+    X4, y4 = build_X4(df_md, df_qd, gdp_flash_series, gdp_actual_series, n_monthly_lags=4, n_qd_lags=4)
 
     global MODEL_REGISTRY
     MODEL_REGISTRY = {
