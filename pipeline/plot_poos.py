@@ -1,7 +1,6 @@
 import pandas as pd
 from database.client import get_backend_client
-from pipeline.ci_update import fetch_all_model_forecasts, get_month_date
-from pipeline.historical import plot_poos_results
+from pipeline.evaluation_support import fetch_all_model_forecasts, get_month_date, plot_poos_results
 
 
 def fetch_gdp(client) -> pd.Series:

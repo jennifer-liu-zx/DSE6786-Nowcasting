@@ -1,32 +1,7 @@
 import pandas as pd
-from supabase import client
+import numpy as np
 from database.client import get_backend_client
-
-# Fetch all model_forecasts
-def fetch_all_model_forecasts(client):
-    all_rows = []
-    page_size = 1000  # Supabase default limit
-    start = 0
-    
-    while True:
-        response = (
-            client.table("model_forecasts")
-            .select("*")
-            .range(start, start + page_size - 1)
-            .execute()
-        )
-        data = response.data or []
-        all_rows.extend(data)
-        
-        if len(data) < page_size:
-            break  # last page
-        start += page_size
-    
-    return pd.DataFrame(all_rows)
-
-
-import pandas as pd
-from database.client import get_backend_client
+from pipeline.evaluation_support import fetch_all_model_forecasts
 
 
 def get_version(quarter_date: pd.Timestamp, month_date: pd.Timestamp) -> int:
@@ -162,22 +137,6 @@ def push_forecasts_to_evaluation(client, run_date=None) -> None:
 
     print(f"Upserted {len(records)} rows into 'evaluation'.")
 
-    # ── Upsert ───────────────────────────────────────────────────────────────
-    client.table("evaluation").upsert(
-        records,
-        on_conflict="quarter_date,version"
-    ).execute()
-
-    print(f"Upserted {len(records)} rows into 'evaluation'.")
-
-
-import pandas as pd
-from database.client import get_backend_client
-import numpy as np
-
-import pandas as pd
-from database.client import get_backend_client
-import numpy as np
 
 def calculate_and_upsert_rmse(client):
     # Fetch all evaluation data
