@@ -9,10 +9,7 @@ pipeline.prediction — it sits below all three so any of them can import
 from here without creating a circular import.
 """
 
-import os
-
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 def fetch_all_model_forecasts(client) -> pd.DataFrame:
@@ -85,6 +82,11 @@ def plot_poos_results(
     version: int,
     last_n: int = 200,
 ) -> None:
+    import os
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots(figsize=(14, 5))
 
     y_plot = y_full.iloc[-last_n:]

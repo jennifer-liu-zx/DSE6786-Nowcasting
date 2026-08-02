@@ -7,10 +7,6 @@ from pipeline.models.lasso import fit_lasso
 from pipeline.output_x_poos import make_build_X, build_X1_from_cut, build_X2_from_cut, build_X3_from_cut, build_X4_from_cut, build_X_AR_from_cut, build_X_RF_bench_from_cut
 from pipeline.poos import poos_validation
 from pipeline.evaluation_support import get_month_date, plot_poos_results
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use("Agg")
-import os
 
 def push_poos_to_supabase(client, models: list, version: int, run_date=None):
     run_date = pd.Timestamp(run_date or pd.Timestamp.today()).date()
