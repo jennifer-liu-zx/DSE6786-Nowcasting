@@ -326,7 +326,7 @@ def build_X_AR_from_cut(gdp_for_lags: pd.Series, gdp_actual: pd.Series, n_lags: 
 
 
 # =============================================================================
-# MAIN — live-path CSV export, mirrors the old output_x.py script
+# MAIN — live-path CSV export, mirrors the old live-nowcast CSV-export script
 # =============================================================================
 
 if __name__ == "__main__":
