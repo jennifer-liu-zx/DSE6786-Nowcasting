@@ -5,28 +5,7 @@ from pipeline.models.AR_benchmark import ar_model_nowcast
 from pipeline.models.rf import randomForest
 from pipeline.models.lasso import fit_lasso
 from pipeline.output_x import build_X1, build_X2, build_X3, build_X4, load_filled_data, build_X_AR, load_filled_data
-
-def fetch_all_model_forecasts(client):
-    all_rows = []
-    page_size = 1000  # Supabase default limit
-    start = 0
-    
-    while True:
-        response = (
-            client.table("model_forecasts")
-            .select("*")
-            .range(start, start + page_size - 1)
-            .execute()
-        )
-        data = response.data or []
-        all_rows.extend(data)
-        
-        if len(data) < page_size:
-            break  # last page
-        start += page_size
-    
-    return pd.DataFrame(all_rows)
-
+from pipeline.evaluation_support import fetch_all_model_forecasts, compute_ci_bounds
 
 def assign_version_prev(run_date):
     return (run_date.month - 1) % 3 + 4
@@ -76,6 +55,7 @@ def nowcast_single(model, X: pd.DataFrame, y: pd.Series, gdp: pd.DataFrame, mode
     # Run model — last row of X_window is the test point
     _, _, _, _, y_test_actual, y_test_predicted = model(X_window, y_window).values()
 
+    lb50, ub50, lb80, ub80 = compute_ci_bounds(float(y_test_predicted), rmse)
     return pd.DataFrame(
         index=[target_idx],
         data={
@@ -83,10 +63,10 @@ def nowcast_single(model, X: pd.DataFrame, y: pd.Series, gdp: pd.DataFrame, mode
             "quarter":       pd.Period(target_idx, freq="Q").to_timestamp(how="end").to_period("M").to_timestamp().date(),
             "y_true":        float(y_test_actual),
             "y_hat":         float(y_test_predicted),
-            "pred_50_lower": float(y_test_predicted) - 0.674 * rmse,
-            "pred_50_upper": float(y_test_predicted) + 0.674 * rmse,
-            "pred_80_lower": float(y_test_predicted) - 1.282 * rmse,
-            "pred_80_upper": float(y_test_predicted) + 1.282 * rmse,
+            "pred_50_lower": lb50,
+            "pred_50_upper": ub50,
+            "pred_80_lower": lb80,
+            "pred_80_upper": ub80,
         }
     )
 
@@ -159,6 +139,7 @@ def nowcast_single_latest(model, X: pd.DataFrame, y: pd.Series, gdp: pd.DataFram
     # Run model — last row of X_window is the test point
     _, _, _, _, y_test_actual, y_test_predicted = model(X_window, y_window).values()
 
+    lb50, ub50, lb80, ub80 = compute_ci_bounds(float(y_test_predicted), rmse)
     return pd.DataFrame(
         index=[target_idx],
         data={
@@ -166,10 +147,10 @@ def nowcast_single_latest(model, X: pd.DataFrame, y: pd.Series, gdp: pd.DataFram
             "quarter":       pd.Period(target_idx, freq="Q").to_timestamp(how="end").to_period("M").to_timestamp().date(),
             "y_true":        float(y_test_actual),
             "y_hat":         float(y_test_predicted),
-            "pred_50_lower": float(y_test_predicted) - 0.674 * rmse,
-            "pred_50_upper": float(y_test_predicted) + 0.674 * rmse,
-            "pred_80_lower": float(y_test_predicted) - 1.282 * rmse,
-            "pred_80_upper": float(y_test_predicted) + 1.282 * rmse,
+            "pred_50_lower": lb50,
+            "pred_50_upper": ub50,
+            "pred_80_lower": lb80,
+            "pred_80_upper": ub80,
         }
     )
 
@@ -338,8 +319,7 @@ def prediction_pipeline(run_date=None):
         }
     }
     supabase_client = get_backend_client()
-    gdp_response = supabase_client.table("gdp").select("sasdate, GDPC1_t").execute()
-    gdp_response = get_backend_client().table("gdp").select("sasdate, GDPC1_t").order("sasdate", desc=False).execute()
+    gdp_response = supabase_client.table("gdp").select("sasdate, GDPC1_t").order("sasdate", desc=False).execute()
     gdp_df = pd.DataFrame(gdp_response.data)
     gdp_df["sasdate"] = pd.to_datetime(gdp_df["sasdate"])
     gdp_df = gdp_df.set_index("sasdate")
