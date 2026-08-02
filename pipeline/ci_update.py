@@ -1,38 +1,7 @@
 import pandas as pd
 import numpy as np
 from database.client import get_backend_client
-
-
-def fetch_all_model_forecasts(client):
-    all_rows = []
-    page_size = 1000
-    start = 0
-    
-    while True:
-        response = (
-            client.table("model_forecasts")
-            .select("*")
-            .range(start, start + page_size - 1)
-            .execute()
-        )
-        data = response.data or []
-        all_rows.extend(data)
-        
-        if len(data) < page_size:
-            break
-        start += page_size
-    
-    return pd.DataFrame(all_rows)
-
-
-def get_month_date(quarter_ts: pd.Timestamp, version: int) -> pd.Timestamp:
-    if version not in range(1, 7):
-        raise ValueError(f"version must be 1–6, got {version}")
-
-    quarter_start = quarter_ts.to_period("Q").to_timestamp(how="start")
-    month_offset = version - 1
-    target = quarter_start + pd.DateOffset(months=month_offset)
-    return target + pd.offsets.MonthEnd(0)
+from pipeline.evaluation_support import fetch_all_model_forecasts, get_month_date, compute_ci_bounds
 
 
 def update_ci_columns(client):
@@ -79,13 +48,9 @@ def update_ci_columns(client):
         return
 
     # ── Compute CI ───────────────────────────────────────────────────────────
-    z50 = 0.674
-    z80 = 1.282
-
-    merged["ci_50_lb"] = merged["nowcast"] - z50 * merged["rmse"]
-    merged["ci_50_ub"] = merged["nowcast"] + z50 * merged["rmse"]
-    merged["ci_80_lb"] = merged["nowcast"] - z80 * merged["rmse"]
-    merged["ci_80_ub"] = merged["nowcast"] + z80 * merged["rmse"]
+    merged["ci_50_lb"], merged["ci_50_ub"], merged["ci_80_lb"], merged["ci_80_ub"] = (
+        compute_ci_bounds(merged["nowcast"], merged["rmse"])
+    )
 
     # ── SAFE row-by-row update (no overwrite risk) ───────────────────────────
     updates = 0
