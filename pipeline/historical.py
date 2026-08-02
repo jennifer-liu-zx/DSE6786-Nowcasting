@@ -4,7 +4,6 @@ import numpy as np
 from pipeline.models.AR_benchmark import ar_model_nowcast
 from pipeline.models.rf import randomForest
 from pipeline.models.lasso import fit_lasso
-from pipeline.output_x_poos import make_build_X, build_X1_from_cut, build_X2_from_cut, build_X3_from_cut, build_X4_from_cut, build_X_AR_from_cut, build_X_RF_bench_from_cut
 from pipeline.poos import poos_validation
 from pipeline.evaluation_support import get_month_date, plot_poos_results
 

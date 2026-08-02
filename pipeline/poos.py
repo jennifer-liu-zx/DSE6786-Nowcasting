@@ -7,14 +7,7 @@ from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from pipeline.evaluation_support import compute_ci_bounds
 
-from pipeline.output_x_poos import (
-    build_X1_from_cut,
-    build_X2_from_cut,
-    build_X3_from_cut,
-    build_X4_from_cut,
-    build_X_AR_from_cut,
-    make_build_X
-)
+from pipeline.feature_matrix import build_X1, build_X2, build_X3, build_X4, build_X_AR_from_cut
 from pipeline.ragged_edge import fill_ragged_edge_until
 from database.client import get_backend_client
 
@@ -49,6 +42,35 @@ def placeholder_model(X: pd.DataFrame, y: pd.Series) -> dict:
         "y_test_actual":     y_test_actual,
         "y_test_predicted":  y_test_predicted,
     }
+
+
+def make_build_X(
+    model_name: str,
+    n_lags: int = 4,
+    n_monthly_lags: int = 4,
+    n_qd_lags: int = 4,
+):
+    """
+    Returns a build_X function with the uniform (md, qd, gdp_for_lags,
+    gdp_actual) signature poos_validation calls regardless of buildname.
+
+    Usage:
+        build_fn = make_build_X("X1")
+        X, y = build_fn(md, qd, gdp_for_lags, gdp_actual)
+    """
+    match model_name:
+        case "X1":
+            return lambda md, qd, gdp_for_lags, gdp_actual: build_X1(md, qd, gdp_for_lags, gdp_actual)
+        case "X2":
+            return lambda md, qd, gdp_for_lags, gdp_actual: build_X2(md, qd, gdp_for_lags, gdp_actual, n_lags)
+        case "X3":
+            return lambda md, qd, gdp_for_lags, gdp_actual: build_X3(md, qd, gdp_for_lags, gdp_actual)
+        case "X4":
+            return lambda md, qd, gdp_for_lags, gdp_actual: build_X4(md, qd, gdp_for_lags, gdp_actual, n_monthly_lags, n_qd_lags)
+        case "X_AR":
+            return lambda md, qd, gdp_for_lags, gdp_actual: build_X_AR_from_cut(gdp_for_lags, gdp_actual)
+        case _:
+            raise ValueError(f"Unknown model_name '{model_name}'. Must be one of: X1, X2, X3, X4, X_AR")
 
 
 # ── Cut-and-fill snapshot at prediction time ────────────────────────────────
@@ -200,9 +222,9 @@ def poos_validation(
         buildfn = make_build_X(buildname)
 
         X, y = buildfn(
-            qd=qd_filled,
             md=md_filled,
-            gdp_cut=gdp_for_build,
+            qd=qd_filled,
+            gdp_for_lags=gdp_for_build,
             gdp_actual=y_full,
         )
 
@@ -353,7 +375,7 @@ if __name__ == "__main__":
     print("GDP tail (raw, used by AR benchmark):"); print(gdp_raw.tail())
 
     buildX = make_build_X("X1")
-    X, y = buildX(filled_qd, filled_md, gdp_filled, gdp_df["GDPC1_t"])
+    X, y = buildX(filled_md, filled_qd, gdp_filled, gdp_df["GDPC1_t"])
 
     print("Feature matrix tail:"); print(X.tail())
     print("Target series tail:"); print(y.tail())
