@@ -27,10 +27,10 @@ import pipeline.poos as poos
 from pipeline.models.AR_benchmark import ar_model_nowcast
 from pipeline.models.rf import randomForest
 from pipeline.models.lasso import fit_lasso
-from pipeline.output_x import (
-    load_filled_data,
+from pipeline.gdp_data import load_filled_data, load_gdp, load_gdp_with_flash
+from pipeline.feature_matrix import (
     build_X1, build_X2, build_X3, build_X4,
-    build_X_AR, build_X_RF_bench,
+    build_X_AR,
 )
 
 NUM_TEST = 100
@@ -45,13 +45,14 @@ print("Step 1: Loading data and building feature matrices")
 print("=" * 60)
 
 df_md, df_qd = load_filled_data()
+gdp_actual_series = load_gdp()["GDPC1_t"]
+gdp_flash_series  = load_gdp_with_flash()
 
-X_ar,       y_ar       = build_X_AR()
-X_rf_bench, y_rf_bench = build_X_RF_bench()
-X1,         y1         = build_X1(df_md, df_qd)
-X2,         y2         = build_X2(df_md, df_qd)
-X3,         y3         = build_X3(df_md, df_qd)
-X4,         y4         = build_X4(df_md, df_qd)
+X_ar, y_ar = build_X_AR(gdp_actual_series, gdp_actual_series, n_lags=2)
+X1,   y1   = build_X1(df_md, df_qd, gdp_flash_series, gdp_actual_series)
+X2,   y2   = build_X2(df_md, df_qd, gdp_flash_series, gdp_actual_series)
+X3,   y3   = build_X3(df_md, df_qd, gdp_flash_series, gdp_actual_series)
+X4,   y4   = build_X4(df_md, df_qd, gdp_flash_series, gdp_actual_series)
 
 # Columns to exclude — GDP components/accounting identities released with GDP
 LEAKING_SERIES = {"OUTNFB", "OUTBS"}
@@ -71,7 +72,7 @@ X1 = remove_leaking_columns(X1)
 X2 = remove_leaking_columns(X2)
 X3 = remove_leaking_columns(X3)
 X4 = remove_leaking_columns(X4)
-# X_ar and X_rf_bench only use GDP lags — no macro variables to drop
+# X_ar only uses GDP lags — no macro variables to drop
 
 import matplotlib.pyplot as plt
 import pandas as pd
