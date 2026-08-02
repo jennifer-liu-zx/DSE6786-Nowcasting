@@ -231,12 +231,18 @@ def build_X4(df_md: pd.DataFrame, df_qd: pd.DataFrame,
     Uses an INNER join between the U-MIDAS monthly block and the quarterly
     block (matching the live nowcast path's historical behavior) — a row
     is only kept if every feature is present. A prior POOS-only version of
-    this function used a left join intended to "keep all U-MIDAS quarters,"
-    but that interacted badly with downstream POOS windowing logic that
-    discards an entire evaluation quarter if any NaN survives anywhere in
-    its training window: one missing raw value could silently poison up to
-    TRAIN_SIZE quarters' worth of unrelated evaluations. Inner join instead
-    drops exactly the row(s) that are actually incomplete.
+    this function used a left join intended to "keep all U-MIDAS quarters."
+    In the real POOS pipeline this rarely matters in practice today, since
+    pipeline.poos.cut_and_fill() always runs data through
+    pipeline.ragged_edge.fill_ragged_edge_until() first, which interpolates
+    (or zero-fills) every remaining gap before a builder ever sees it — so
+    a NaN essentially never reaches this join in the current pipeline.
+    Inner join is kept anyway as defense in depth: it matches live exactly,
+    and it means any future caller that skips ragged-edge filling (e.g. the
+    __main__ CSV-export script below, which uses load_gdp/load_filled_data
+    directly) can't have an incomplete row silently propagate downstream
+    and poison an unrelated evaluation quarter in pipeline.poos's windowing
+    logic, the way a left join theoretically could.
     """
     df_umidas = _umidas_monthly_to_quarterly(df_md)
     df_q      = _prep_qd(df_qd)
