@@ -10,20 +10,12 @@ point-in-time GDP cuts from historical vintages instead of fetching the
 latest data from Supabase.
 """
 
-import sys
-from pathlib import Path
-
 import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
 
-THIS_DIR    = Path(__file__).resolve().parent   # pipeline/
-PROJECT_DIR = THIS_DIR.parent                   # project root
-
-sys.path.insert(0, str(THIS_DIR))
-sys.path.insert(0, str(PROJECT_DIR))
-from ragged_edge import read_table
+from pipeline.ragged_edge import read_table
 from database.client import get_backend_client
 
 

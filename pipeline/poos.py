@@ -57,6 +57,11 @@ def make_build_X(
     Usage:
         build_fn = make_build_X("X1")
         X, y = build_fn(md, qd, gdp_for_lags, gdp_actual)
+
+    Note: n_lags only affects the "X2" case (its quarterly-lag count) —
+    X1 and X3 have no lag parameter of their own, and X4 uses
+    n_monthly_lags/n_qd_lags instead. It's threaded through uniformly here
+    only because all five dispatch cases share one factory signature.
     """
     match model_name:
         case "X1":

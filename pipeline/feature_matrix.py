@@ -335,6 +335,7 @@ def build_X_AR_from_cut(gdp_for_lags: pd.Series, gdp_actual: pd.Series, n_lags: 
 # MAIN — live-path CSV export, mirrors the old live-nowcast CSV-export script
 # =============================================================================
 
+# Run as: python3 -m pipeline.feature_matrix (needs the package context to resolve pipeline.gdp_data)
 if __name__ == "__main__":
     from pathlib import Path
     from pipeline.gdp_data import load_filled_data, load_gdp, load_gdp_with_flash
