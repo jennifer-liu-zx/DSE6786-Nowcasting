@@ -1,4 +1,4 @@
-# DSE6789
+# GDP Nowcasting
 ## Set-up
 ### Setting up Virtual Environment (Optional but Recommended)
 1. **Create the Venv**:
