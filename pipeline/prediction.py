@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from database.client import get_backend_client
 from pipeline.models.AR_benchmark import ar_model_nowcast
 from pipeline.models.rf import randomForest
 from pipeline.models.lasso import fit_lasso
@@ -278,10 +277,10 @@ def run_all_nowcasts(
         _push_to_supabase(result, model_name, run_date, client, push_evaluation=False)
         print(f"    → {result['y_hat'].iloc[0]:.4f}")
 
-def prediction_pipeline(run_date=None):
-    df_md, df_qd = load_filled_data()
-    gdp_actual_series = load_gdp()["GDPC1_t"]
-    gdp_flash_series  = load_gdp_with_flash()
+def prediction_pipeline(client, run_date=None):
+    df_md, df_qd = load_filled_data(client)
+    gdp_actual_series = load_gdp(client)["GDPC1_t"]
+    gdp_flash_series  = load_gdp_with_flash(client)
     X_ar, y_ar = build_X_AR(gdp_actual_series, gdp_actual_series, n_lags=2)
     X1, y1 = build_X1(df_md, df_qd, gdp_flash_series, gdp_actual_series)
     X2, y2 = build_X2(df_md, df_qd, gdp_flash_series, gdp_actual_series, n_lags=4)
@@ -321,8 +320,7 @@ def prediction_pipeline(run_date=None):
             "y": y2,
         }
     }
-    supabase_client = get_backend_client()
-    gdp_response = supabase_client.table("gdp").select("sasdate, GDPC1_t").order("sasdate", desc=False).execute()
+    gdp_response = client.table("gdp").select("sasdate, GDPC1_t").order("sasdate", desc=False).execute()
     gdp_df = pd.DataFrame(gdp_response.data)
     gdp_df["sasdate"] = pd.to_datetime(gdp_df["sasdate"])
     gdp_df = gdp_df.set_index("sasdate")
@@ -333,5 +331,5 @@ def prediction_pipeline(run_date=None):
         pd.Period(gdp_df.index[-1], freq="Q").to_timestamp(how="end").to_period("M").to_timestamp().date().isoformat(),
     ]
 
-    run_all_nowcasts(gdp_df, supabase_client, run_date = run_date)
-    compute_and_push_model_average(supabase_client, quarter_dates)
+    run_all_nowcasts(gdp_df, client, run_date = run_date)
+    compute_and_push_model_average(client, quarter_dates)
