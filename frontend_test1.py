@@ -24,6 +24,7 @@ from pipeline.fetch_functions import (
     fetch_rmse,
     fetch_dm,
 )
+from database.client import get_frontend_client
 
 # ---------------------------------------------------------------------------
 # Test config -- adjust these to values you know exist in your Supabase DB
@@ -35,6 +36,11 @@ TEST_MODELS      = ["AR_Benchmark", "LASSO_UMIDAS"]  # 2+ models for RMSE / DM
 TEST_START       = date(2020, 1, 1)
 TEST_END         = date(2022, 12, 31)
 TEST_FLASH_MONTH = 1                          # 1, 2, or 3
+
+# This script is a standalone manual integration test run directly against a
+# real Supabase instance (see module docstring), so constructing the client
+# once at module scope here is intentional -- it is never imported elsewhere.
+client = get_frontend_client()
 
 # ---------------------------------------------------------------------------
 
@@ -125,7 +131,7 @@ except Exception as e:
 
 section("4. fetch_nowcast_data")
 try:
-    data, month_labels = fetch_nowcast_data(TEST_QUARTER)
+    data, month_labels = fetch_nowcast_data(client, TEST_QUARTER)
 
     assert isinstance(data, dict),         "data should be a dict"
     assert isinstance(month_labels, list), "month_labels should be a list"
@@ -153,7 +159,7 @@ except Exception as e:
 section("5. fetch_confidence_intervals")
 try:
     month_labels, ci50_lo, ci50_hi, ci80_lo, ci80_hi = fetch_confidence_intervals(
-        TEST_QUARTER, TEST_MODEL
+        client, TEST_QUARTER, TEST_MODEL
     )
 
     assert len(month_labels) > 0, "month_labels should not be empty"
@@ -187,7 +193,7 @@ except Exception as e:
 section("6. fetch_flash_predictions")
 try:
     for fm in [1, 2, 3]:
-        preds = fetch_flash_predictions(TEST_START, TEST_END, fm)
+        preds = fetch_flash_predictions(client, TEST_START, TEST_END, fm)
         assert isinstance(preds, dict), "predictions should be a dict"
         assert len(preds) > 0, f"no predictions returned for flash_month={fm}"
 
@@ -215,7 +221,7 @@ except Exception as e:
 section("7. fetch_historical_data")
 try:
     quarter_labels, actual_values, predictions = fetch_historical_data(
-        TEST_START, TEST_END, TEST_FLASH_MONTH
+        client, TEST_START, TEST_END, TEST_FLASH_MONTH
     )
 
     assert isinstance(quarter_labels, list), "quarter_labels should be a list"
@@ -251,7 +257,7 @@ except Exception as e:
 
 section("8. fetch_rmse")
 try:
-    metrics = fetch_rmse(TEST_MODELS)
+    metrics = fetch_rmse(client, TEST_MODELS)
 
     assert isinstance(metrics, dict), "metrics should be a dict"
     for model in TEST_MODELS:
@@ -278,7 +284,7 @@ try:
     expected_pairs = {frozenset((m1, m2)) for m1, m2 in combinations(TEST_MODELS, 2)}
 
     for fm in [1, 2, 3]:
-        pairs = fetch_dm(TEST_MODELS, fm)
+        pairs = fetch_dm(client, TEST_MODELS, fm)
 
         assert isinstance(pairs, list), "fetch_dm should return a list"
 
