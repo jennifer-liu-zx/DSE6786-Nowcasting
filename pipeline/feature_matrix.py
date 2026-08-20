@@ -339,13 +339,15 @@ def build_X_AR_from_cut(gdp_for_lags: pd.Series, gdp_actual: pd.Series, n_lags: 
 if __name__ == "__main__":
     from pathlib import Path
     from pipeline.gdp_data import load_filled_data, load_gdp, load_gdp_with_flash
+    from database.client import get_backend_client
 
     PROJECT_DIR = Path(__file__).resolve().parent.parent
     DATA_DIR = PROJECT_DIR / "data"
 
-    df_md, df_qd = load_filled_data()
-    gdp_actual_series = load_gdp()["GDPC1_t"]
-    gdp_flash_series  = load_gdp_with_flash()
+    client = get_backend_client()
+    df_md, df_qd = load_filled_data(client)
+    gdp_actual_series = load_gdp(client)["GDPC1_t"]
+    gdp_flash_series  = load_gdp_with_flash(client)
 
     X1, y1     = build_X1(df_md, df_qd, gdp_flash_series, gdp_actual_series)
     X2, y2     = build_X2(df_md, df_qd, gdp_flash_series, gdp_actual_series, n_lags=4)
