@@ -213,12 +213,11 @@ def dm_test(
     return float(dm_stat_corrected), float(p_value)
 
 
-def fetch_forecast_data(table_name: str = "evaluation") -> pd.DataFrame:
+def fetch_forecast_data(client, table_name: str = "evaluation") -> pd.DataFrame:
     """
     Pulls all forecast data from Supabase and returns a cleaned DataFrame.
     """
-    supabase = get_backend_client()
-    response = supabase.table(table_name).select("quarter_date",
+    response = client.table(table_name).select("quarter_date",
                                                  "version", 
                                                  "gdp_actual","AR_Benchmark","RF_Lags_Average",
                                                  "RF_Lags_UMIDAS", "LASSO_UMIDAS",
@@ -278,7 +277,7 @@ def main():
 
     # Fetch Forecast Data
     print("Fetching data from Supabase...")
-    df_forecasts = fetch_forecast_data()
+    df_forecasts = fetch_forecast_data(supabase)
     
     if df_forecasts.empty:
         print("No data fetched. Exiting pipeline.")
@@ -311,17 +310,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# ── TEST ──────────────────────────────────────────────────────────────────────
-# df_forecasts = fetch_forecast_data()
-# print(df_forecasts.head(15))
-# model_pairs = compare_model_pairs(
-#     df_forecasts,
-#     time_col='quarter_date'
-# )
-
-# from pipeline.load_data import save_df
-# save_df(model_pairs, "../data", "filter_dm_test_results")
 
 
 
