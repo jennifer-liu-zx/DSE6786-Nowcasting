@@ -61,31 +61,6 @@ def fetch_nowcast_data(quarter: str) -> dict[str, list[float]]:
     return data, month_labels
 
 
-######## Function 2: Getting Labels ########
-#### This is just a segment of Function 1. ####
-def fetch_nowcast_x_labels(quarter: str) -> list[str]:
-    
-    # Step 0: Get input's (quarter) start and end dates:
-    quarter_start = quarter_to_dates(quarter)
-    
-    # Step 1: Repeat step 1; query supabase
-    result = supabase.table("model_forecasts") \
-    .select("*") \
-    .eq("quarter_date", quarter_start) \
-    .order("month_date") \
-    .execute()
-        
-    forecasts = result.data
-
-    # Step 2: Pick just one model and get all its dates, given that all models have the same dates
-    ref_model = forecasts[0]["model_name"]
-    month_labels = [
-        row ["month_date"] for row in forecasts
-        if row["model_name"] == ref_model
-    ]
-    
-    return month_labels
-
 ######## Function 3: Fetch Confidence Intervals ########
 
 def fetch_confidence_intervals(quarter: str, model: str) -> tuple[list[str], list[float], list[float]]:
