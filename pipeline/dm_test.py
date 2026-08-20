@@ -271,9 +271,10 @@ def push_dm_results_to_supabase(client, dm_results_df: pd.DataFrame, table_name=
         print(f"Failed to push DM results to Supabase: {e}")
 
 
-def main():
-    # Initialize Supabase Client
-    supabase = get_backend_client()
+def main(client=None):
+    # Initialize Supabase Client — accept an injected one (e.g. from pipe.py,
+    # which already has one), or build our own for standalone runs.
+    supabase = client or get_backend_client()
 
     # Fetch Forecast Data
     print("Fetching data from Supabase...")

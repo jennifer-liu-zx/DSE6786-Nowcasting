@@ -27,13 +27,13 @@ def run(run_date = None):
     upsert_table(supabase, "filled_qd", df_filled_qd)
     fill_missing_gdp_quarters(supabase)
 
-    prediction_pipeline(run_date=pd.to_datetime(run_date) if run_date else None)
+    prediction_pipeline(supabase, run_date=pd.to_datetime(run_date) if run_date else None)
 
     push_forecasts_to_evaluation(supabase)
     calculate_and_upsert_rmse(supabase)
     calculate_mean_rmse_by_model(supabase)
     update_ci_columns(supabase)
-    run_dm_test()
+    run_dm_test(client=supabase)
 
 if __name__ == "__main__":
     run()
