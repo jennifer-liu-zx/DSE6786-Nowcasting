@@ -153,6 +153,7 @@ def run():
             print(f"\n--- {model_name} (buildX={build_name}) ---")
 
             poos_out, rmse, mae = poos_validation(
+                client,
                 method=cfg["model"],
                 buildname=build_name,
                 QD_t=QD_t,

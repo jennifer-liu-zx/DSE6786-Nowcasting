@@ -80,15 +80,14 @@ def make_build_X(
 
 # ── Cut-and-fill snapshot at prediction time ────────────────────────────────
 
-def cut_and_fill(version: int,
+def cut_and_fill(client,
+                 version: int,
                  q_predicted: pd.Timestamp,
                  QD_t: pd.DataFrame,
                  MD_t: pd.DataFrame,
                  gdp: pd.Series,
                  model_name: str = "All_Model_Average",
                  ):
-
-    client = get_backend_client()   
 
     q_start    = q_predicted - relativedelta(months=2)
     prev_q_end = q_start - relativedelta(months=1)
@@ -183,6 +182,7 @@ def cut_and_fill(version: int,
 # ── POOS validation loop ─────────────────────────────────────────────────────
 
 def poos_validation(
+    client,
     method: Callable,
     buildname: str,
     QD_t: pd.DataFrame,
@@ -215,6 +215,7 @@ def poos_validation(
 
         # 1. Cut & fill
         qd_filled, md_filled, gdp_filled, gdp_raw = cut_and_fill(
+            client,
             version=version,
             q_predicted=pd.Timestamp(q_predicted),
             QD_t=QD_t,
@@ -360,14 +361,16 @@ if __name__ == "__main__":
 
     qd["sasdate"] = pd.to_datetime(qd["sasdate"], errors="coerce")
     md["sasdate"] = pd.to_datetime(md["sasdate"], errors="coerce")
-    # gdp = get_backend_client().table("gdp").select("sasdate, GDPC1_t").execute()
-    # gdp_df = pd.DataFrame(gdp.data)
+    # Alternative: load GDP from database via client.table("gdp").select("sasdate, GDPC1_t").execute()
     gdp_df = pd.read_csv("data/gdp.csv")
     gdp_df["sasdate"] = pd.to_datetime(gdp_df["sasdate"], errors="coerce")
     gdp_df = gdp_df.set_index("sasdate")
 
+    smoke_test_client = get_backend_client()
+
     # Smoke-test cut_and_fill
     filled_qd, filled_md, gdp_filled, gdp_raw = cut_and_fill(
+        smoke_test_client,
         version=4,
         q_predicted=pd.Timestamp("2025-12-01"),
         QD_t=qd,
