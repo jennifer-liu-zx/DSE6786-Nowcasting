@@ -1,4 +1,7 @@
 # GDP Nowcasting
+
+**Live app:** https://jl-zx.shinyapps.io/gdp-nowcast1/
+
 ## Set-up
 ### Setting up Virtual Environment (Optional but Recommended)
 1. **Create the Venv**:
