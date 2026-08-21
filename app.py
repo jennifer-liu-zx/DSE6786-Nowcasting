@@ -8,7 +8,7 @@ from pipeline.fetch_functions import fetch_nowcast_data, fetch_confidence_interv
 from database.client import get_frontend_client
 
 from frontend.quarters import QUARTERS
-from frontend.model_labels import MODEL_DB_NAMES, DEFAULT_MODELS, MODELS, MODEL_COLORS, MODEL_DESCRIPTIONS, to_db_names, from_db_name
+from frontend.model_labels import MODEL_DB_NAMES, DEFAULT_MODELS, MODELS, MODEL_DESCRIPTIONS, to_db_names, from_db_name
 
 from frontend.theme import get_theme
 
@@ -686,7 +686,7 @@ def server(input, output, session):
             db_ci_model = MODEL_DB_NAMES.get(ci_model)
             if db_ci_model is not None:
                 x_ci, ci50_lo, ci50_hi, ci80_lo, ci80_hi = fetch_confidence_intervals(client, quarter, db_ci_model)
-            ci_color = MODEL_COLORS.get(ci_model, "#888")
+            ci_color = t["model_colors"].get(ci_model, "#888")
             r, g, b = int(ci_color[1:3], 16), int(ci_color[3:5], 16), int(ci_color[5:7], 16)
             # 80% band (wider, more transparent) — drawn first so 50% renders on top
             fig.add_trace(

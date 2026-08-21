@@ -8,13 +8,6 @@ MODEL_DB_NAMES = {
 DEFAULT_MODELS = ["Ensemble"]
 MODELS = list(MODEL_DB_NAMES.keys())
 
-MODEL_COLORS = {
-    "Ensemble": "#1f77b4",
-    "RF Lags Avg": "#2ca02c",
-    "RF Lags UMIDAS": "#d62728",
-    "LASSO UMIDAS": "#ff7f0e",
-}
-
 MODEL_DESCRIPTIONS = {
     "Ensemble": "A simple average of 5 backend models: 3 LASSO variants (simple average, simple average + lags, U-MIDAS) and 2 Random Forest variants (simple average + lags, U-MIDAS + lags). Only 3 of these 5 models are shown individually in this app.",
     "RF Lags Avg": "A Random Forest Bridge Equation model using simple quarterly averages of monthly data. Includes lags of the quarterly averages as features.",
