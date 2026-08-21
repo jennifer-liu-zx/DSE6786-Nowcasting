@@ -93,10 +93,6 @@ THEME = {
     },
 }
 
-# =============================================================================
-# END THEME
-# =============================================================================
-
 
 def get_theme(is_dark: bool) -> dict:
     """Return the active THEME sub-dict for the given dark-mode state."""

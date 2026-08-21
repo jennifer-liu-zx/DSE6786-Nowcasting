@@ -9,11 +9,7 @@ from database.client import get_frontend_client
 
 from frontend.quarters import QUARTERS
 from frontend.model_labels import MODEL_DB_NAMES, DEFAULT_MODELS, MODELS, MODEL_DESCRIPTIONS, to_db_names, from_db_name
-
 from frontend.theme import get_theme
-
-
-
 from frontend.tour import (
     ABOUT_NOWCASTING, QUARTER_SELECTION, MODEL_SELECTION, CONFIDENCE_INTERVAL,
     CONFIDENCE_INTERVAL_HOVER, RMSE_HOVER, HISTORICAL_DATA, DATE_RANGE_SELECTION,

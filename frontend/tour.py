@@ -1,3 +1,5 @@
+"""Onboarding-tour copy and UI helpers (modals, spotlights, info icons)."""
+
 from shiny import ui
 
 ##Text edit
