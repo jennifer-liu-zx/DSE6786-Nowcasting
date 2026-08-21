@@ -4,7 +4,7 @@ generate_schema.py
 Reads the 5 CSV files in data/ and auto-generates supabase/schema.sql.
 
 Run this from the project root:
-    python generate_schema.py
+    python scripts/generate_schema.py
 
 Re-run it whenever the model team changes the CSV column structure.
 """

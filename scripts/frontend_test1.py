@@ -1,12 +1,12 @@
 """
-test_fetch_functions.py
+frontend_test1.py
 -----------------------
 Manual integration tests for pipeline/fetch_functions.py.
 Each test prints PASS / FAIL and a short summary of what was returned,
 so you can eyeball values against what you expect from Supabase.
 
-Run with:
-    python test_fetch_functions.py
+Run with (from the project root):
+    python -m scripts.frontend_test1
 
 Requires a .env file with SUPABASE_URL and SUPABASE_KEY set.
 """
