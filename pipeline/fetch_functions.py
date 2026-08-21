@@ -184,6 +184,11 @@ def fetch_dm(client, models: list[str], flash_month: int) -> list[dict]:
     test_statistic, p_value}. Uses whichever (model_1, model_2) ordering
     the dm_test table stores for that pair — winner-first, i.e. a negative
     test_statistic always favours model_1.
+
+    flash_month (1-3) is the UI-facing subset of the pipeline's version
+    concept (1-6, see pipeline.evaluation_support.get_month_date) restricted
+    to same-quarter predictions — it is passed directly as the dm_test
+    table's `version` filter below.
     """
     results = []
     for m1, m2 in combinations(models, 2):

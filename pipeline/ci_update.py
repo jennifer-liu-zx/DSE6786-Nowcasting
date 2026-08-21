@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from database.client import get_backend_client
-from pipeline.evaluation_support import fetch_all_model_forecasts, get_month_date, compute_ci_bounds
+from pipeline.evaluation_support import fetch_all_model_forecasts, infer_version, compute_ci_bounds
 
 
 def update_ci_columns(client):
@@ -23,15 +23,9 @@ def update_ci_columns(client):
     rmse_df = pd.DataFrame(rmse_data)
     rmse_df["version"] = pd.to_numeric(rmse_df["version"], errors="coerce")
 
-    # ── Map version efficiently (vectorized instead of slow loop) ────────────
-    def infer_version(row):
-        q, m = row["quarter_date"], row["month_date"]
-        for v in range(1, 7):
-            if get_month_date(q, v) == m:
-                return v
-        return None
-
-    df["version"] = df.apply(infer_version, axis=1)
+    df["version"] = df.apply(
+        lambda row: infer_version(row["quarter_date"], row["month_date"]), axis=1
+    )
     df = df.dropna(subset=["version"])
 
     # ── Merge with RMSE ──────────────────────────────────────────────────────

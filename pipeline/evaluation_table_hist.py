@@ -1,18 +1,7 @@
 import pandas as pd
 import numpy as np
 from database.client import get_backend_client
-from pipeline.evaluation_support import fetch_all_model_forecasts
-
-
-def get_version(quarter_date: pd.Timestamp, month_date: pd.Timestamp) -> int:
-    q_start = quarter_date - pd.DateOffset(months=2)
-    offsets = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6}
-    diff = (month_date.year - q_start.year) * 12 + (month_date.month - q_start.month)
-    if diff not in offsets:
-        raise ValueError(
-            f"month_date {month_date.date()} is not within 6 months of quarter {quarter_date.date()}"
-        )
-    return offsets[diff]
+from pipeline.evaluation_support import fetch_all_model_forecasts, infer_version
 
 
 def push_forecasts_to_evaluation(client, run_date=None) -> None:
@@ -45,15 +34,8 @@ def push_forecasts_to_evaluation(client, run_date=None) -> None:
         print("No data left after excluding specified quarter_dates. Skipping.")
         return
 
-    # ── Safe version computation ──────────────────────────────────────────────
-    def safe_get_version(q, m):
-        try:
-            return get_version(q, m)
-        except Exception:
-            return None
-
     df["version"] = df.apply(
-        lambda r: safe_get_version(r["quarter_date"], r["month_date"]), axis=1
+        lambda r: infer_version(r["quarter_date"], r["month_date"]), axis=1
     )
 
     df = df.dropna(subset=["version"])

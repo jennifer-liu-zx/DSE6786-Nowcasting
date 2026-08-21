@@ -59,6 +59,17 @@ def get_month_date(quarter_ts: pd.Timestamp, version: int) -> pd.Timestamp:
     return target + pd.offsets.MonthEnd(0)
 
 
+def infer_version(quarter_date: pd.Timestamp, month_date: pd.Timestamp) -> int | None:
+    """
+    Inverse of get_month_date: given a quarter_date/month_date pair, return
+    the version (1-6) that produced it, or None if no version matches.
+    """
+    quarter_start = quarter_date.to_period("Q").to_timestamp(how="start")
+    diff = (month_date.year - quarter_start.year) * 12 + (month_date.month - quarter_start.month)
+    version = diff + 1
+    return version if version in range(1, 7) else None
+
+
 def compute_ci_bounds(point, rmse):
     """
     Gaussian-quantile 50%/80% confidence-interval bounds around a point

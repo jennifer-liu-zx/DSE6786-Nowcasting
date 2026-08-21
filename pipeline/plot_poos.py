@@ -1,6 +1,6 @@
 import pandas as pd
 from database.client import get_backend_client
-from pipeline.evaluation_support import fetch_all_model_forecasts, get_month_date, plot_poos_results
+from pipeline.evaluation_support import fetch_all_model_forecasts, infer_version, plot_poos_results
 
 
 def fetch_gdp(client) -> pd.Series:
@@ -14,14 +14,6 @@ def fetch_gdp(client) -> pd.Series:
     gdp_df["sasdate"] = pd.to_datetime(gdp_df["sasdate"])
     gdp_df = gdp_df.set_index("sasdate")
     return gdp_df["GDPC1_t"]
-
-
-def infer_version(quarter_date: pd.Timestamp, month_date: pd.Timestamp) -> int | None:
-    # Versions 1-6 represent the six months across and after a quarter
-    for v in range(1, 7):
-        if get_month_date(quarter_date, v) == month_date:
-            return v
-    return None
 
 
 def run():
