@@ -1,5 +1,7 @@
 # GDP Nowcasting
 
+This repo builds on a group project ("Tkachenko Capital"). The original team's deployment is unchanged at https://vismaypmenon.shinyapps.io/tkachenko_capital/; this repo's own deployment below tracks ongoing work here.
+
 **Live app:** https://jl-zx.shinyapps.io/gdp-nowcast1/
 
 ## Set-up

@@ -28,3 +28,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Personal rsconnect deploy config (contains local machine paths)
+rsconnect-python/DSE6786-Nowcasting.json
