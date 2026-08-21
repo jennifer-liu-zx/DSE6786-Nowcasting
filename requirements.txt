@@ -12,3 +12,4 @@ fredapi>=0.4
 python-dotenv>=0.19
 supabase>=2.0
 hdmpy >=0.1.0
+rsconnect-python>=1.30  # deploy tool, not needed to run the app
