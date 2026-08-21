@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import date
 from pipeline.fetch_functions import fetch_nowcast_data, fetch_confidence_intervals, fetch_historical_data, fetch_rmse, fetch_dm, fetch_realised_gdp
+from database.client import get_frontend_client
 
 import calendar
 from datetime import date
@@ -536,6 +537,8 @@ app_ui = ui.page_fluid(
 
 def server(input, output, session):
 
+    client = get_frontend_client()
+
     wizard_step = reactive.value(1)
     dm_overlay_visible = reactive.value(False)
     models_overlay_visible = reactive.value(False)
@@ -775,8 +778,8 @@ def server(input, output, session):
         t = THEME["dark"] if is_dark.get() else THEME["light"]
         db_models = to_db_names(selected_models)
 
-        dm_pairs = fetch_dm(db_models, flash_month)
-        metrics = fetch_rmse(db_models)
+        dm_pairs = fetch_dm(client, db_models, flash_month)
+        metrics = fetch_rmse(client, db_models)
 
         pair_rows = []
         for pair in dm_pairs:
@@ -955,7 +958,7 @@ def server(input, output, session):
         t = THEME["dark"] if is_dark.get() else THEME["light"]
 
         # TODO: swap get_dummy_nowcast_data → fetch_nowcast_data when Supabase ready
-        data, x_labels = fetch_nowcast_data(quarter)
+        data, x_labels = fetch_nowcast_data(client, quarter)
 
         fig = go.Figure()
 
@@ -976,7 +979,7 @@ def server(input, output, session):
         if ci_model and ci_model != "None" and ci_model in selected_models:
             db_ci_model = MODEL_DB_NAMES.get(ci_model)
             if db_ci_model is not None:
-                x_ci, ci50_lo, ci50_hi, ci80_lo, ci80_hi = fetch_confidence_intervals(quarter, db_ci_model)
+                x_ci, ci50_lo, ci50_hi, ci80_lo, ci80_hi = fetch_confidence_intervals(client, quarter, db_ci_model)
             ci_color = MODEL_COLORS.get(ci_model, "#888")
             r, g, b = int(ci_color[1:3], 16), int(ci_color[3:5], 16), int(ci_color[5:7], 16)
             # 80% band (wider, more transparent) — drawn first so 50% renders on top
@@ -1003,7 +1006,7 @@ def server(input, output, session):
                     showlegend=True,
                 )
             )
-        realised = fetch_realised_gdp(quarter)
+        realised = fetch_realised_gdp(client, quarter)
         if realised is not None:
             fig.add_hline(
                 y=realised,
@@ -1054,7 +1057,7 @@ def server(input, output, session):
 
         # TODO: swap get_dummy_historical_data → fetch_historical_data when Supabase ready
         quarters, actual, predictions = fetch_historical_data(
-                    start_date, end_date, flash_month
+                    client, start_date, end_date, flash_month
                 )
 
         fig = go.Figure()
@@ -1107,7 +1110,7 @@ def server(input, output, session):
 
         # TODO: swap get_dummy_metrics → fetch_evaluation_metrics when Supabase ready
         db_models = to_db_names(selected_models)
-        metrics = fetch_rmse(db_models)
+        metrics = fetch_rmse(client, db_models)
 
         rmse_lines = []
         for model in selected_models:

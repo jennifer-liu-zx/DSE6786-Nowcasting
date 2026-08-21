@@ -16,20 +16,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from pipeline.ragged_edge import read_table
-from database.client import get_backend_client
 
 
-def load_filled_data():
+def load_filled_data(client):
     """Fetch filled_md and filled_qd from Supabase."""
     print("Loading filled data from Supabase …")
-    supabase = get_backend_client()
 
-    df_md = read_table(supabase, "filled_md")
+    df_md = read_table(client, "filled_md")
     df_md["sasdate"] = pd.to_datetime(df_md["sasdate"])
     df_md = df_md.sort_values("sasdate").reset_index(drop=True)
     print(f"  filled_md : {df_md.shape}")
 
-    df_qd = read_table(supabase, "filled_qd")
+    df_qd = read_table(client, "filled_qd")
     df_qd["sasdate"] = pd.to_datetime(df_qd["sasdate"])
     df_qd = df_qd.sort_values("sasdate").reset_index(drop=True)
     print(f"  filled_qd : {df_qd.shape}\n")
@@ -37,17 +35,16 @@ def load_filled_data():
     return df_md, df_qd
 
 
-def load_gdp() -> pd.DataFrame:
+def load_gdp(client) -> pd.DataFrame:
     """Fetch the raw (un-imputed) GDP table from Supabase, indexed by sasdate."""
-    supabase = get_backend_client()
-    gdp = read_table(supabase, "gdp")
+    gdp = read_table(client, "gdp")
     gdp["sasdate"] = pd.to_datetime(gdp["sasdate"])
     gdp = gdp.set_index("sasdate").sort_index()
     gdp = gdp[gdp.index.notna()]
     return gdp
 
 
-def load_gdp_with_flash() -> pd.Series:
+def load_gdp_with_flash(client) -> pd.Series:
     """
     Returns the GDP growth series (GDPC1_t) with any unreleased quarters
     filled by the latest Ensemble flash prediction from model_forecasts.
@@ -56,16 +53,15 @@ def load_gdp_with_flash() -> pd.Series:
     released. We substitute the Ensemble nowcast so lag features can be
     constructed for the Q1 2026 nowcast row.
     """
-    gdp = load_gdp()
+    gdp = load_gdp(client)
     y = gdp["GDPC1_t"].copy()
 
     missing = y[y.isna()].index
     if len(missing) == 0:
         return y
 
-    supabase = get_backend_client()
     for date in missing:
-        resp = (supabase.table("model_forecasts")
+        resp = (client.table("model_forecasts")
                 .select("nowcast")
                 .eq("model_name", "All_Model_Average")
                 .eq("quarter_date", date.strftime("%Y-%m-%d"))

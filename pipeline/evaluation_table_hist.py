@@ -29,7 +29,6 @@ def push_forecasts_to_evaluation(client, run_date=None) -> None:
         print(f"No model_forecasts data found for run_date={run_date}. Skipping.")
         return
 
-    client = get_backend_client()
     df = fetch_all_model_forecasts(client)
 
     df["quarter_date"] = pd.to_datetime(df["quarter_date"])
